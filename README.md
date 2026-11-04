@@ -17,8 +17,8 @@ flowchart LR
 Every agent CLI names its flags differently. What a workflow needs is the same across all of them:
 a working directory, prompts, loop sources, validators, templates, checkpoints.
 
-agent-yaml keeps those in the file and lets the adapter translate the rest. A workflow that sticks to
-shared options moves between CLIs by changing `cli-agent`.
+agent-yaml keeps those in the file and lets the adapter translate the rest. A workflow that sticks
+to shared options moves between CLIs by changing `cli-agent`.
 
 Each step is one subprocess call. The only contract between steps is files on disk.
 
@@ -97,6 +97,59 @@ task:
 
 Run it, then rerun the same command after an interruption. Finished items are skipped.
 
+## Primitives
+
+A workflow is built from a fixed vocabulary. The forms are the same on every adapter; only the CLI-
+specific options change.
+
+**Workflow fields**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `directory` | string | Required. Working directory for every task |
+| `cli-agent` | string | `opencode`, `claude`, `gemini`, `qwen`, `codex` (default `claude`) |
+| `cli-agent-config` | map | `model`, `timeout`, `skip-confirmations`, `additional-dirs`, `mcp-config-file`, `raw-args`, … |
+| `environment` | map | Env vars inherited by every task |
+| `template-variables` | map | User variables, resolved in dependency order |
+| `includes` | map | Reusable prompt fragments, inline or from a file |
+| `ensure` | map | Pre-flight `tools` and `mcps` checks |
+| `task` | list | The task tree (required) |
+
+**Task fields**
+
+`prompt`, `task`, `include`, `loop`, `validate`, `retry`, `skip-if`, `when`, `env`, `directory`,
+`cli-agent-config`, `on-error`.
+
+A list runs in order. A mapping runs its keys concurrently in a `ThreadPoolExecutor`.
+
+**Loops**
+
+| Type | Source |
+|------|--------|
+| `todo-list` | markdown checkboxes |
+| `csv` | CSV file |
+| `json` | JSON array |
+| `jsonl` | one JSON object per line |
+| `glob` | file pattern |
+
+All loops take `checkpoint-file`, `resume`, and a `retry` block (`max-attempts`, `on-failure`:
+`skip`, `retry`, `abort`). `workers` parallelizes `csv`, `json`, and `jsonl` items; `todo-list` and
+`glob` run in order.
+
+**Validators**
+
+`file-exists`, `file-not-empty`, `contains`, `json-valid`, `yaml-valid`, `command`.
+
+Validators run after a task exits 0. A failure can retry the task (`retry.on-validation-failure`:
+`retry`, `fail`, `skip`).
+
+**Variables**
+
+Reserved: `{{directory}}`, `{{gitroot}}`, `{{datetime}}`, `{{user}}`, `{{env.NAME}}`. User variables
+come from `template-variables` and are overridden with `--var key=value`. Loop items add
+`{{loop.index}}`, `{{loop.total}}`, `{{loop.item}}`, `{{loop.worker.id}}` and
+`{{loop.worker.directory}}`.
+
 ## How a run works
 
 1. **Parse** (`src/parser.py`) the YAML with `yaml.safe_load`.
@@ -169,8 +222,8 @@ gateway). See [tests/README.md](tests/README.md).
 - `agent-yaml run --resume` is a no-op. Resumption happens through each loop's `resume: true` plus
   `checkpoint-file`.
 - The Codex adapter emits flags that recent `codex-cli` releases reject. The Claude adapter sends
-  `--allowed-mcp-server-names`, which current `claude` builds reject. Both are listed with workarounds
-  in [docs/ADAPTER_TROUBLESHOOTING.md](docs/ADAPTER_TROUBLESHOOTING.md).
+  `--allowed-mcp-server-names`, which current `claude` builds reject. Both are listed with
+  workarounds in [docs/ADAPTER_TROUBLESHOOTING.md](docs/ADAPTER_TROUBLESHOOTING.md).
 - Cancellation is best effort: in a parallel group with `on-error: fail`, tasks already scheduled
   still run before the workflow aborts.
 
