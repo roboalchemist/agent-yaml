@@ -9,6 +9,7 @@ authoritative field-by-field specification remains [`spec/`](../spec).
 | If you want to… | Read |
 |-----------------|------|
 | Write your first workflow | [AUTHORING.md](AUTHORING.md) |
+| Look up a flag or exit code | [CLI.md](CLI.md) |
 | Understand `{{variables}}`, Jinja2, and `when` | [TEMPLATING.md](TEMPLATING.md) |
 | Iterate over CSV, JSON, files, or checkboxes | [LOOPS.md](LOOPS.md) then [PARALLEL_LOOPS.md](PARALLEL_LOOPS.md) |
 | Verify what a task produced | [VALIDATORS.md](VALIDATORS.md) |
@@ -20,6 +21,7 @@ authoritative field-by-field specification remains [`spec/`](../spec).
 
 | Page | Covers | Source of truth |
 |------|--------|-----------------|
+| [CLI.md](CLI.md) | Commands, flags, exit codes, environment precedence, retries, troubleshooting, known limitations | `src/cli.py` |
 | [AUTHORING.md](AUTHORING.md) | Workflow skeleton, top-level fields, task tree, includes, `ensure`, CLI overrides, failure handling, authoring checklist | `src/cli.py`, `src/executor.py`, `src/includes.py`, `src/ensure.py` |
 | [TEMPLATING.md](TEMPLATING.md) | The two interpolation paths, hyphen/undefined traps, available variables, Jinja2 features, whitespace, `when` semantics, env precedence | `src/utils.py`, `src/variables.py`, `src/when_conditions.py` |
 | [LOOPS.md](LOOPS.md) | All five loop types, field reference, the `skip-header` × `columns` matrix, JSON filters, checkpoints and resuming | `src/loops.py`, `src/validator.py` |
