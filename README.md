@@ -1,12 +1,11 @@
 # agent-yaml
 
-Define repeatable workflows once, in YAML, and run them through OpenCode, Claude Code, Gemini, Qwen,
-or Codex. The workflow is built from shared primitives (loops, validators, variables, includes,
-checkpoints) and stays independent of any single harness.
+Define a workflow once in YAML and run it through OpenCode, Claude Code, Gemini, Qwen, or Codex. The
+workflow is built from shared primitives (loops, validators, variables, includes, checkpoints) and
+is independent of any single harness.
 
-A prompt you retype is a one-off. A YAML file with a task tree, a loop source, a validation rule and
-a checkpoint is a job you can rerun, review, hand to a teammate, and point at a different agent CLI
-without rewriting it.
+A prompt you retype is a one-off. A YAML file is a job you can rerun, review, hand to a teammate, and
+point at a different agent CLI without rewriting it.
 
 ```mermaid
 flowchart LR
@@ -16,19 +15,19 @@ flowchart LR
 
 ## Why it exists
 
-- **Repeatable work should be a file.** The workflow file is the run definition: same task tree,
-  same loop sources, same validators, every time. Rerunning it is the normal case.
-- **Shared primitives across agents.** Loops, validators, template variables, includes, `ensure` and
-  checkpoints mean the same thing whether the task runs under OpenCode, Claude Code, Gemini, Qwen or
-  Codex. Adapters translate config keys into each CLI's flags, so the same workflow runs on any of
-  them.
-- **No harness lock-in.** You bring the agent CLI you already use. agent-yaml calls that CLI directly
-  and needs no vendor SDK or plugin system. Each step is one subprocess call, and the only contract
-  between steps is files on disk.
-- **Model output stays opaque.** agent-yaml never parses it. Steps succeed by writing files that
-  validators can check, so a run that "looks done" fails loudly when it isn't.
-- **You can see the command before it costs anything.** `--dry-run` prints the exact argv for every
-  task and calls no model.
+The workflow file is the run definition: same task tree, same loop sources, same validators, every
+time you run it. Nothing depends on remembered context.
+
+Loops, validators, template variables, includes, `ensure` and checkpoints behave the same way under
+OpenCode, Claude Code, Gemini, Qwen and Codex. Adapters translate config keys into each CLI's flags,
+so moving a workflow to another agent does not mean rewriting it.
+
+Each step is one subprocess call. You bring the CLI you already use, with no vendor SDK or plugin
+system in between, and the only contract between steps is files on disk.
+
+Model output stays opaque and is never parsed. Steps succeed by writing files that validators check,
+so a run that reports success without producing the file still fails. `--dry-run` prints the exact
+argv for every task and calls no model, so you can review the plan before it costs tokens.
 
 ## Install
 
@@ -39,7 +38,7 @@ pip install "git+https://github.com/roboalchemist/agent-yaml.git"
 agent-yaml --help
 ```
 
-Python 3.8+ (developed and tested on 3.12), plus at least one supported agent CLI on `PATH`
+Python 3.8+, tested on 3.9, 3.11 and 3.12, plus at least one supported agent CLI on `PATH`
 (`opencode`, `claude`, `gemini`, `qwen`, or `codex`).
 
 ## Quick start
@@ -99,7 +98,7 @@ task:
         - file-not-empty: "{{directory}}/out/{{loop.item.name}}.md"
 ```
 
-Run it, and rerun the same command after an interruption. Finished items are skipped.
+Run it, then rerun the same command after an interruption. Finished items are skipped.
 
 ## How a run works
 
@@ -147,7 +146,7 @@ and [spec/ADAPTER_SPEC.md](spec/ADAPTER_SPEC.md) for the contract.
   loops, validators, interface runner, adapters.
 - [docs/CLI.md](docs/CLI.md) covers every flag, exit code, environment precedence, and retry
   behaviour.
-- [examples/](examples/README.md) has 40+ runnable workflows, all dry-run by the test suite.
+- [examples/](examples/README.md) has 40 runnable workflows, all dry-run by the test suite.
 - [spec/](spec/) holds the authoritative schema and adapter specs.
 
 ## Development
