@@ -2,22 +2,25 @@
 
 Write out your workflows in yaml and then run them under a harness of your choice.
 
-The yaml contains the prompts, where each loop gets its items, and the checks a step has to pass
-before the next one starts. Run it again next month in the latest harness/model of the day and run the same workflow. 
-
 ## Why it exists
 
-Every agent CLI names its flags differently. What a workflow needs is the same across all of them:
-a working directory, prompts, loop sources, validators, templates, checkpoints.
+Each model and framework provider is trying to provide a way to interact with their harness, without providing what is usually needed: a definable, repeatable flow-chart style workflow to accomplish some repeated task. 
 
-agent-yaml keeps those in the file and lets the adapter translate the rest. A workflow that sticks
-to shared options moves between CLIs by changing `cli-agent`.
+The yaml contains the prompts, where each loop gets its items, and the checks a step has to pass
+before the next one starts. Run it again next month in the latest harness/model of the day and run the same workflow.
 
-Each step is one subprocess call. The only contract between steps is files on disk.
+agent-yaml lets one define their workflows irregardless of the harness or model of the day, by breaking down what most boring workflows tend to be (or could most easily be) comprised of:
+- a working directory
+- prompts made with templates
+- looping over something
+- validating checks
+- composable templating of the above 
 
-Model output stays opaque and is never parsed. Steps succeed by writing files that validators check,
-so a run that reports success without producing the file still fails. `--dry-run` prints the exact
-argv for every task and calls no model.
+Each step is one subprocess call, with contracts between steps being files on the disk. 
+
+Model output stays opaque and is never parsed.
+If you want to parse it, write it to a file and parse that.
+Validators run against written files to form checkpoints. 
 
 ## Install
 
