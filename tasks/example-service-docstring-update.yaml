@@ -1,0 +1,333 @@
+---
+# Example Service Docstring Mass Update
+# Updates all endpoint docstrings to follow the RFC standard
+# Creates one branch + PR per owner, commits and pushes after each change
+
+directory: ~/projects/example-repo
+
+cli-agent: claude
+cli-agent-config:
+  skip-confirmations: true
+  timeout: null
+  additional-dirs:
+    - ~/projects/example-repo/example-service
+
+on-error: continue # Don't stop workflow if one endpoint fails
+
+template-variables:
+  example-service-dir: "{{gitroot}}/example-service"
+  docstring-standard-file: "{{example-service-dir}}/docs/docstring_standard.md"
+  csv-file: "{{example-service-dir}}/docs/endpoint_owners.csv"
+  base-branch: "docstring-base"
+
+includes:
+  docstring-standard: |
+    Follow the docstring standard documented in {{docstring-standard-file}}.
+
+  preserve-logic: |
+    CRITICAL: Only update or add the docstring. Do NOT modify any function implementation,
+    business logic, imports, decorators, or other code. Preserve all existing functionality exactly.
+
+  commit-push-instructions: |
+    After updating the docstring:
+    1. Stage the change: git add {{loop.item.File}}
+    2. Commit: git commit -m "Update docstring for {{loop.item.Function}} in {{loop.item.File}}"
+    3. Push immediately: git push origin {current-branch-name}
+
+task:
+  # Phase 1: Create branches and draft PRs for all unique owners
+  - create-branches-and-draft-prs:
+      prompt: |
+        Use csvtool to extract all unique owners from {{csv-file}}:
+
+        1. Extract unique owners:
+           csvtool col 6 {{csv-file}} | tail -n +2 | sort -u
+
+        2. For each unique owner, slugify the name:
+           - Convert to lowercase
+           - Replace spaces with hyphens
+           - Remove special characters
+           Examples:
+           - "Your Name" → "your-handle"
+           - "Todd Mitton" → "todd-mitton"
+           - "nkisel" → "nkisel"
+
+        3. For each owner-slug:
+
+        BRANCH CREATION:
+        1. Branch name: docstring-update/{owner-slug}
+
+        2. Check if branch already exists:
+           git branch -a | grep "docstring-update/{owner-slug}"
+
+        3. If branch does NOT exist:
+           a. Checkout base branch: git checkout {{base-branch}}
+           b. Create and push branch: git checkout -b docstring-update/{owner-slug}
+           c. Push to remote: git push -u origin docstring-update/{owner-slug}
+
+        4. If branch DOES exist:
+           - Log: "Branch docstring-update/{owner-slug} already exists, skipping creation"
+           - Fetch latest: git fetch origin docstring-update/{owner-slug}
+
+        DRAFT PR CREATION:
+        5. Check if PR already exists:
+           gh pr list --repo example-org/example-repo \
+             --head docstring-update/{owner-slug} \
+             --base {{base-branch}} \
+             --json number
+
+        6. If PR does NOT exist, create DRAFT PR with placeholder:
+           gh pr create --repo example-org/example-repo \
+             --base {{base-branch}} \
+             --head docstring-update/{owner-slug} \
+             --title "Update Access Control Docstrings - {Owner Name}" \
+             --body "## Overview
+           This PR updates endpoint docstrings in example-service to follow the RFC standard.
+
+           ## Status
+           🚧 DRAFT - Automated docstring updates in progress
+
+           ## Endpoints
+           (Will be populated after all updates complete)
+
+           ## Reference
+           - RFC: RFC-Automated-Access-Control-Documentation-2633f0421926800bb641d1428f0960a6
+           - Standard: example-service/docs/docstring_standard.md" \
+             --draft
+
+        7. If PR already exists:
+           - Log: "PR already exists for {owner-slug}, skipping"
+
+        8. Log progress for each owner:
+           - Total branches processed
+           - Total PRs created
+           - Timestamp: {{datetime}}
+
+  # Phase 2: Process all endpoints with CSV loop (skip if already updated)
+  - update-docstrings:
+      loop:
+        type: csv
+        source: "{{csv-file}}"
+        skip-header: true
+        columns: [Methods, Route, Function, File, Line, Assigned Owner]
+      prompt: |
+        ENDPOINT: {{loop.item.Route}} ({{loop.item.Methods}})
+        FUNCTION: {{loop.item.Function}}
+        FILE: example-service/{{loop.item.File}}
+        LINE: {{loop.item.Line}}
+        OWNER: {{loop.item.Assigned Owner}}
+
+        INSTRUCTIONS:
+        1. Determine the branch name for owner "{{loop.item.Assigned Owner}}" by slugifying:
+           - Convert to lowercase
+           - Replace spaces with hyphens
+           - Prepend "docstring-update/"
+
+        2. Switch to that branch: git checkout docstring-update/{slugified-owner}
+
+        3. Navigate to file example-service/{{loop.item.File}} and locate function
+           {{loop.item.Function}} at approximately line {{loop.item.Line}}
+
+        4. Check if this endpoint has ALREADY been updated (for resume scenarios):
+           a. Read the current docstring for function {{loop.item.Function}}
+           b. Check if the docstring follows the standard (has Summary, Args/Json/Returns/Raises/
+              Permissions/Notes sections as applicable)
+           c. Check git log for recent commits on this file:
+              git log -1 --oneline -- example-service/{{loop.item.File}} | grep "{{loop.item.Function}}"
+
+        5. If docstring is ALREADY COMPLETE and properly formatted:
+           - Log: "Skipping {{loop.item.Function}} - already updated"
+           - SKIP to next iteration (do NOT modify, commit, or push)
+
+        6. If docstring is MISSING or INCOMPLETE:
+           a. Read the docstring standard from {{docstring-standard-file}}
+           b. Update or create a comprehensive docstring for {{loop.item.Function}} that:
+              - Follows the format specified in {{docstring-standard-file}}
+              - Includes all applicable sections (Summary, Args, Json, Returns, Raises,
+                Permissions, Notes)
+              - Documents the endpoint {{loop.item.Route}} with method(s) {{loop.item.Methods}}
+              - Maintains proper indentation and formatting
+              - Is enclosed in triple quotes ("""...""")
+
+        7. After updating the docstring:
+           - git add example-service/{{loop.item.File}}
+           - git commit -m "Update docstring for {{loop.item.Function}} in {{loop.item.File}}"
+           - git push origin docstring-update/{slugified-owner}
+
+        Progress: {{loop.index}}/{{loop.total}} endpoints
+        Timestamp: {{datetime}}
+      include:
+        - docstring-standard
+        - preserve-logic
+      on-error: continue
+
+  # Phase 3: Update PR descriptions with endpoint lists and mark ready for review
+  - update-prs-and-mark-ready:
+      prompt: |
+        For each branch with pattern docstring-update/*, update the PR and mark ready:
+
+        1. Get all docstring-update branches:
+           git branch -a | grep "docstring-update/"
+
+        2. For each branch docstring-update/{owner-slug}:
+
+           a. Extract the owner's original name (un-slugify):
+              - Replace hyphens with spaces, title case
+
+           b. Get list of all endpoints for this owner from {{csv-file}}:
+              - Use csvtool or grep to filter rows where "Assigned Owner" matches
+              - For each matching row, extract: Methods, Route, Function, File
+
+           c. Build endpoint list in format:
+              - `{Methods} {Route}` → `{Function}` in `{File}`
+
+           d. Get the PR number for this branch:
+              gh pr list --repo example-org/example-repo \
+                --head docstring-update/{owner-slug} \
+                --base {{base-branch}} \
+                --json number --jq '.[0].number'
+
+           e. Update PR body with full endpoint list:
+              gh pr edit {PR-number} --repo example-org/example-repo --body "## Overview
+           This PR updates endpoint docstrings in example-service to follow the RFC standard
+           documented in example-service/docs/docstring_standard.md.
+
+           ## Endpoints Updated
+           {paste full list of endpoints from step 2c}
+
+           ## Changes
+           - Updated docstrings for {count} endpoints owned by {Owner Name}
+           - Applied standard format from example-service/docs/docstring_standard.md
+           - Documented Args, Json, Returns, Raises, Permissions, Notes sections
+
+           ## Reference
+           - RFC: RFC-Automated-Access-Control-Documentation-2633f0421926800bb641d1428f0960a6
+           - Standard: example-service/docs/docstring_standard.md
+
+           ## Review Notes
+           - Only docstrings modified
+           - No business logic changes
+           - All existing functionality preserved"
+
+           f. Mark PR as ready for review:
+              gh pr ready {PR-number} --repo example-org/example-repo
+
+           g. Request review from the assigned owner (if GitHub username can be determined):
+
+              To find GitHub username for {Owner Name}:
+              1. Try common mappings first:
+                 - "Your Name" → "your-handle"
+                 - "Todd Mitton" → "tmitton"
+                 - "nkisel" → "nkisel"
+                 - If name is lowercase without spaces, likely IS the GitHub username
+
+              2. If mapping unclear, search GitHub using gh CLI:
+                 gh api search/users --field q="{Owner Name}" --jq '.items[0].login'
+
+              3. If username found, add as reviewer:
+                 gh pr edit {PR-number} --repo example-org/example-repo \
+                   --add-reviewer {github-username}
+
+              4. If username NOT found or search fails:
+                 - Log: "Could not determine GitHub username for {Owner Name}, skipping reviewer"
+                 - Do NOT force a reviewer assignment
+                 - Let GitHub auto-suggest reviewers
+
+           h. Log: "Updated and marked ready: PR #{PR-number} for {Owner Name}"
+              If reviewer added, also log: "Reviewer: {github-username}"
+
+  # Phase 4: Update PR descriptions with actual edited endpoints
+  - update-pr-descriptions-with-edited-endpoints:
+      prompt: |
+        Update each PR description to include only the endpoints that were ACTUALLY edited:
+
+        1. Get all docstring-update branches:
+           gh pr list --repo example-org/example-repo \
+             --head "docstring-update/*" \
+             --base {{base-branch}} \
+             --json number,headRefName
+
+        2. For each PR:
+           a. Get the branch name and PR number from step 1
+
+           b. Get all commit messages from this branch:
+              git log {{base-branch}}..origin/{branch-name} --oneline --pretty=format:"%s"
+
+           c. Extract the endpoints that were edited from commit messages:
+              - Each commit message has format: "Update docstring for {Function} in {File}"
+              - Parse out the Function name and File path from each commit
+
+           d. For each Function+File pair, look up the endpoint details from {{csv-file}}:
+              - Find the row where Function matches and File matches
+              - Extract: Methods, Route, Function, File
+
+           e. Build endpoint list in format:
+              - `{Methods} {Route}` → `{Function}` in `{File}`
+
+           f. Update the PR body to replace the "Endpoints Updated" section:
+              gh pr edit {PR-number} --repo example-org/example-repo --body "## Overview
+           This PR updates endpoint docstrings in example-service to follow the RFC standard
+           documented in example-service/docs/docstring_standard.md.
+
+           ## Endpoints Updated
+           {paste list of ACTUALLY EDITED endpoints from step 2e}
+
+           ## Changes
+           - Updated docstrings for {count} endpoints
+           - Applied standard format from example-service/docs/docstring_standard.md
+           - Documented Args, Json, Returns, Raises, Permissions, Notes sections
+
+           ## Reference
+           - RFC: RFC-Automated-Access-Control-Documentation-2633f0421926800bb641d1428f0960a6
+           - Standard: example-service/docs/docstring_standard.md
+
+           ## Review Notes
+           - Only docstrings modified
+           - No business logic changes
+           - All existing functionality preserved"
+
+           g. Log: "Updated PR #{PR-number} with {count} edited endpoints"
+
+        3. Final log with timestamp: {{datetime}}
+
+  # Phase 5: Create single unified summary
+  - final-summary:
+      prompt: |
+        Create SINGLE unified summary {{example-service-dir}}/docs/docstring-update-summary.txt:
+
+        1. List all PRs:
+           gh pr list --repo example-org/example-repo \
+             --head "docstring-update/*" \
+             --base {{base-branch}} \
+             --json number,title,url,headRefName,state
+
+        2. For each PR, get commit count:
+           git rev-list --count {{base-branch}}..{branch}
+
+        3. Calculate totals:
+           - Total unique owners
+           - Total PRs created
+           - Total endpoints processed (480)
+           - Total commits across all branches
+
+        Format:
+        === Example Service Docstring Update - Complete ===
+        Base branch: {{base-branch}}
+        Started: {{datetime}}
+        Completed: {current-timestamp}
+
+        SUMMARY:
+        - Endpoints processed: 480
+        - Unique owners: {count}
+        - PRs created: {count}
+        - Total commits: {sum}
+
+        PULL REQUESTS (Ready for Review):
+        {for each PR:}
+        - PR #{number}: {title}
+          URL: {url}
+          Branch: {branch}
+          Commits: {count}
+          Status: {state}
+
+        All PRs marked as ready for review.

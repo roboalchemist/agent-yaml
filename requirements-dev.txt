@@ -1,0 +1,19 @@
+# Development dependencies for agent-yaml
+# Install with: pip install -r requirements-dev.txt
+
+# Testing framework
+pytest>=7.0
+pytest-cov>=4.0
+pytest-mock>=3.10
+
+# Code formatting
+black>=23.0
+
+# Type checking
+mypy>=1.0
+
+# Linting
+flake8>=6.0
+
+# Additional useful development tools
+ipython>=8.0  # Enhanced REPL

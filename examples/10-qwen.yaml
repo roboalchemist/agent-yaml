@@ -1,0 +1,134 @@
+# Example 10: Qwen CLI Agent
+# Tests: cli-agent: qwen with comprehensive workflow
+# Demonstrates CLI-agnostic YAML - same workflow as 07-comprehensive.yaml
+
+directory: /tmp
+
+cli-agent: qwen
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 300
+
+on-error: continue
+
+template-variables:
+  test-suite: "qwen-v10"
+  output-dir: "{{directory}}/agent-yaml-test-10"
+  data-dir: "{{output-dir}}/data"
+  reports-dir: "{{output-dir}}/reports"
+  logs-dir: "{{output-dir}}/logs"
+
+includes:
+  context: "You are running a Qwen CLI agent test."
+  reminder: "All output must go to {{output-dir}}"
+
+task:
+  # Phase 1: Setup (Parallel: sibling object keys run concurrently)
+  # Phases are list items, so each phase finishes before the next one starts.
+  - setup:
+      create-dirs:
+        prompt: |
+          Create directory structure:
+          - {{output-dir}}
+          - {{data-dir}}
+          - {{reports-dir}}
+          - {{logs-dir}}
+        include:
+          - context
+
+      create-todo:
+        prompt: |
+          Create {{data-dir}}/tasks.md with:
+          "# Qwen Integration Tasks
+
+          - [ ] Component validation
+          - [ ] System integration
+          - [ ] End-to-end testing"
+        include:
+          - reminder
+
+      create-csv:
+        prompt: |
+          Create {{data-dir}}/components.csv with:
+          "component,type,status
+          parser,core,stable
+          executor,core,stable
+          loops,feature,stable"
+        include:
+          - reminder
+
+      create-files:
+        prompt: |
+          Create test files in {{data-dir}}:
+          - alpha.log with "Alpha log entry"
+          - beta.log with "Beta log entry"
+          - gamma.log with "Gamma log entry"
+        include:
+          - reminder
+
+  # Phase 2: Parallel Analysis
+  - parallel-analysis:
+      quick-scan:
+        prompt: |
+          Create {{reports-dir}}/quick-scan.txt with:
+          "Quick Scan Report
+          CLI Agent: Qwen
+          Test: {{test-suite}}
+          User: {{user}}
+          Timestamp: {{datetime}}"
+        include:
+          - context
+
+      detailed-analysis:
+        prompt: |
+          Create {{reports-dir}}/detailed-analysis.txt with:
+          "Detailed Analysis Report
+          CLI Agent: Qwen
+          Directory: {{directory}}
+          Output: {{output-dir}}
+          Timestamp: {{datetime}}"
+        include:
+          - context
+
+  # Phase 3: Loop Processing
+  - loop-processing:
+      todos:
+        loop:
+          type: todo-list
+          source: "{{data-dir}}/tasks.md"
+          mark-in-progress: true
+          mark-complete: true
+        prompt: |
+          Process: {{loop.item.text}}
+          Create {{logs-dir}}/todo-{{loop.item.number}}.log with:
+          "Task: {{loop.item.text}}
+          Progress: {{loop.index}}/{{loop.total}}
+          Timestamp: {{datetime}}"
+        include:
+          - reminder
+
+  # Phase 4: Summary
+  - finalize:
+      prompt: |
+        Create {{output-dir}}/QWEN-SUMMARY.txt with:
+        "=== QWEN CLI AGENT TEST SUMMARY ===
+
+        CLI Agent: Qwen
+        Test Suite: {{test-suite}}
+        User: {{user}}
+        Timestamp: {{datetime}}
+
+        FEATURES TESTED:
+        ✅ Qwen CLI adapter (--approval-mode yolo)
+        ✅ Sequential + Parallel execution
+        ✅ TodoList loop
+        ✅ Template variables
+        ✅ Include concatenation
+
+        This demonstrates CLI-agnostic YAML - same workflow runs
+        on Claude, Gemini, Qwen, or Codex by changing cli-agent field.
+
+        OUTPUT: {{output-dir}}/"
+      include:
+        - context
+        - reminder

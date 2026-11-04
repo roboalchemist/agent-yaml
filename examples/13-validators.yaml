@@ -1,0 +1,55 @@
+# Example 13: Post-Task Validators
+# Demonstrates file-exists, file-not-empty, and contains validators
+#
+# This is a POSITIVE test - all validators should pass
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-13-{{datetime}}"
+  report-file: "{{output-dir}}/report.md"
+
+task:
+  - create-directory:
+      prompt: |
+        Create directory {{output-dir}} if it doesn't exist:
+        mkdir -p {{output-dir}}
+
+  - generate-report:
+      prompt: |
+        Create file {{report-file}} with exactly this content:
+
+        # Test Report
+
+        Generated at {{datetime}}
+
+        ## Summary
+
+        All validator tests completed successfully.
+
+        ## Details
+
+        - File creation: OK
+        - Content validation: OK
+        - Format validation: OK
+
+      validate:
+        - file-exists: "{{report-file}}"
+        - file-not-empty: "{{report-file}}"
+        - contains:
+            file: "{{report-file}}"
+            text: "## Summary"
+
+  - verify-success:
+      prompt: |
+        Read {{report-file}} and confirm it contains:
+        1. "# Test Report" header
+        2. "## Summary" section
+        3. "## Details" section
+
+        Print "✅ All validators passed successfully!" to stdout.

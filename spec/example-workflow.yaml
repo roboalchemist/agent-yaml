@@ -1,0 +1,284 @@
+# expandable directory to start the agent in
+directory: "~/projects/example-repo"
+
+# Specify which AI CLI tool to use (claude, openai, gemini)
+cli-agent: "claude"
+
+# CLI-specific configuration (translated by adapter layer)
+cli-agent-config:
+  skip-confirmations: true
+  additional-dirs:
+    - "/tmp"
+    - "/private/var/tmp"
+  # Raw arguments passed directly to the CLI (for tool-specific features)
+  raw-args:
+    - "--verbose"
+    - "--setting-sources"
+    - "user,project"
+
+template-variables:
+  topic: "access-control-behaviours"
+  service: "example-service"
+  docs-folder: "docs"
+  # template-variables can reference each other. Circular dependency mapping is an exercise for the reader. These are all evaluated before includes, and includes before prompts
+  doc-root: "{{directory}}/{{service}}/{{docs-folder}}"
+  topic-doc: "{{doc-root}}/{{topic}}.md"
+  topic-doc-root: "{{doc-root}}/{{topic}}"
+  intro-doc: "{{topic-doc-root}}/intro.md"
+  how-to-write-a-doc-guide: "reference/writing-docs.md"
+  todo-file: "todo.txt"
+
+# ensure we have the following mcps installed and are viable before running
+ensure:
+  mcps:
+    - notion
+    - linear
+  tools:
+    - gh
+
+# ensure we have the following tools installed and setup before running
+
+# includes are re-usable sections concatenated to the prompt text. They can use template-variables as jinja2 inserts
+includes:
+  read-intro: "Read the full introduction guide on the {{topic}} in {{intro-doc}} before starting to gain an understanding of what the topic is before proceeding with any other task."
+  exhaustive: "Perform an exhaustive search by trying various search terms associated with the topic, and mentioned in the intro doc that would seem exclusive to the topic."
+  parallel-subagents: "This is an embarrassingly parallel task. Use the sub-agents in parallel, keeping track of their progress with a todo list."
+  style: "The style of the additions should be should be complete, compact, and informative, without leaving out any information."
+  style-avoid-lists: "Think about whether a paragraph or list is more appropriate. You tend to over-use lists."
+  think-research: "Ultra-think the research process and use sub-agents for any research tasks. Keep track of the research tasks with a todo list. Monitor the sub-agents, and have them return to you a digest of what they have found. Make the additions to the document only after all research has been done."
+  validate-additions: "After the additions have been made, use sub-agents to validate the just-written section by cross-referencing claims against gathered documents, checking consistency with previous sections, verifying all statements are supported by evidence, ensuring terminology consistency, and confirming section completeness."
+  cite-code: "Cite the code"
+  use-agent: "Look through the agent profiles, and use the one most appropriate for the task."
+  use-doc-guide: "Read the document {{how-to-write-a-doc-guide}} in full so you understand how we like to write guides before doing any work."
+  do-next-todo: "Look for the next todo item in the file {{todo-file}} and find the next open todo item [ ] (unassigned and uncompleted). It should not be [-] (in-progress) or [x] (completed). For the next open todo item, mark it as in progress ([-]). If there are no more todo elements, you may exit immediately."
+  validate: "After all additions have been made, then validate the document by cross-referencing claims against gathered documents, checking consistency with previous sections, verifying all statements are supported by evidence, ensuring terminology consistency, and confirming section completeness."
+  read-current-topic-doc: "Look at the current state of the topic document at {{topic-doc}} its entirety to understand what the current state of it is before editing it."
+  use-intro: "Read the full introduction guide on the {{topic}} in {{intro-doc}} before starting to gain an understanding of what the topic is before proceeding with any other task."
+  read-current-doc: "Look at the current state of the topic document at {{topic-doc}} its entirety to understand what the current state of it is before editing it."
+
+# only sections with "prompt" are actual prompts
+# prompts on the same order can be run in parallel
+# prompts in a list are run in series, in order
+
+task:
+  - intro:
+      write-intro:
+        # prompts can use template-variables as jinja2 inserts
+        prompt: "Create a folder {{topic-doc-root}} for the topic {{topic}}. Research the topic in relation to the <git root>/{{service}} folder. Create a {{intro-doc}} markdown guide to the topic. This will serve as a jump-off point for future research about the topic. Include specific files that are relevant."
+  - harvest-initial:
+      # prompt can be group. They will only be evaluated once they have a "prompt" property, otherwise this is just a sequential/parallel grouping order
+      linear:
+        - gather-linear-projects:
+            prompt: "Then use the linear MCP to find all the linear projects in linear associated with the topic {{topic}} and make a digest of them in {{topic-doc-root}}/linear_projects.md. Focus the search on the Team A, Team B, and Team C teams, but don't limit to those teams entirely, just know that those are the teams that do most of the work on that topic. Task sub-agents to do the actual reading of the projects themselves, and have the sub-agent confirm that the project is specifically relating to the topic and only the topic. Note when it was created and last updated, and include a link to the original."
+            # includes are appended as part of the prompt
+            include:
+              - use-intro
+              - exhaustive
+              - parallel-subagents
+        - gather-linear-issues:
+            prompt: "Use the linear MCP to find all the linear issues in the projects associated with the topic {{topic}} make a digest of them in {{topic-doc-root}}/linear_issues.md. Make use of the linear projects digest we already compiled in {{topic-doc-root}}/linear_projects.md. Focus the search on the Team A, Team B, and Team C teams, but don't limit to those teams entirely, just know that those are the teams that do most of the work on that topic. Task sub-agents to do the actual reading of the projects themselves, and have the sub-agent confirm that the project is specifically relating to the topic and only the topic. Note when it was created and last updated, and include a link to the original."
+            include:
+              - use-intro
+              - exhaustive
+              - parallel-subagents
+      notion-rfcs:
+        prompt: "Find all the RFCs in notion associated with {{topic}} topic in notion and write a digest of them in {{topic-doc-root}}/RFCs.md. Task sub-agents to do the actual reading of the pages themselves. Note for each page when it was created, when it was last updated, and include a link to the original."
+        include:
+          - use-intro
+      notion-docs:
+        - notion-digest:
+            prompt: "Find all the notion pages associated with the topic {{topic}} and write a digest of them in {{topic-doc-root}}/notion_pages.md. After the search, task sub-agents to do the actual reading of the pages and summarization. Note for each page when it was created, when it was last updated, and include a link to the original."
+            include:
+              - use-intro
+              - exhaustive
+              - parallel-subagents
+        - notion-digest-harvest:
+            prompt: "Create a folder {{topic-doc-root}}/notion_pages, then read the {{topic-doc-root}}/notion_pages.md, and then use sub-agents utilizing the Notion MCP to copy the entirety of each notion page to its own markdown document in the folder {{topic-doc-root}}/notion_pages."
+            include:
+              - parallel-subagents
+  - github:
+      - github-digest:
+          prompt: "Use the gh tool to to find all PRs associated with the topic {{topic}} and make a digest of them in {{topic-doc-root}}/PRs.md. reference the {{topic-doc-root}}/linear_projects.md and {{topic-doc-root}}/linear_issues.md documents to find appropriate tickets. Each PR should include the author, merge date, and a link to the PR."
+          include:
+            - use-intro
+            - exhaustive
+      - github-read:
+          prompt: "Read the PRs in {{topic-doc-root}}/PRs.md, and then task each one to a sub-agent to read the PR, and decide if it is relevant. The sub-agent should remove it if it is not relevant, and add a justification for its relevancy if it is, and then add a summary of the PR, what it is, and how it works"
+          include:
+            - use-intro
+            - parallel-subagents
+  - timeline:
+      prompt: "Read through every document in the {{topic-doc-root}} folder. Create a todo list for each document left to review. Only after reading through every document in this folder, create a timeline of the project called {{topic-doc-root}}/timeline.md. It should be compact and informative. Create it in order, so we can read the entire history of {{topic}}."
+      include:
+        - use-intro
+  - write-initial-doc:
+      prompt: "Create the initial topic document at {{topic-doc}}. Start by filling out the section headers and Table of Contents. Do not fill in the Overview or Background sections yet, or any other sections - these will be written last."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+  - write-terminology:
+      prompt: "Fill out the Terminology section of topic document {{topic-doc}} with specific terminology for {{topic}}."
+      include:
+        - use-intro
+        - use-doc-guide
+        - read-current-doc
+        - think-research
+        - validate
+        - style
+  - write-concepts:
+      prompt: "Fill out the Concepts section of topic document {{topic-doc}}. Only give brief descriptions of the concepts."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-history:
+      prompt: "Fill out the History section of topic document {{topic-doc}} based on the timeline document at {{topic-doc-root}}/timeline.md, projects done to rework it, what changes accomplished, etc."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-contract:
+      prompt: "Fill out the Contract section under Implementation Details section describing what is guaranteed and not guaranteed by {{topic}}."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-data-model:
+      prompt: "Research the codebase for database models related to {{topic}}, if any. If there are any, fill out the Data Model section under Backend, citing specific elements about the data-model files in the service."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-api-endpoints:
+      prompt: "Research the codebase for example-service API endpoints related to {{topic}}, if any. If there are any, fill out the API Endpoints section with specific endpoint details and code references."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-permissions:
+      prompt: "Fill out the Permissions section with specific permission requirements. First read the document on permissions in {{doc-root}}."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-public-api-endpoints:
+      prompt: "Research public-api endpoints related to {{topic}}, if any. If there are any, fill out the public-api endpoints section with specific endpoint details."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-device-service-common:
+      prompt: "Research the device-service-common service folder for firmware code related to {{topic}}. Fill out the device-service-common section with relevant firmware implementation details."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-device-service:
+      prompt: "Research the device-service folders for firmware code related to {{topic}}. Fill out the device-service section with relevant firmware implementation details."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-appendix-prs:
+      prompt: "Fill out the `Related Merged Reference Pull Requests` section in the Appendix with relevant PRs from {{topic-doc-root}}/PRs.md and their descriptions."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-appendix-notion:
+      prompt: "Fill out the `Related Notion Docs` section in the Appendix with relevant PRs from {{topic-doc-root}}/notion_pages.md and their descriptions."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-appendix-linear-projects:
+      prompt: "Fill out the `Linear Projects` section in the Appendix with relevant PRs from {{topic-doc-root}}/linear_projects.md and their descriptions."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-appendix-linear-issues:
+      prompt: "Fill out the `Linear Issues` section in the Appendix with relevant PRs from {{topic-doc-root}}/linear_issues.md and their descriptions."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-appendix-rfcs:
+      prompt: "Fill out the `RFCs` section in the Appendix with relevant PRs from {{topic-doc-root}}/RFCs.md and their descriptions."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-background:
+      prompt: "Write the Background section as a consolidation summary based on all gathered information."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+        - style-avoid-lists
+  - write-overview:
+      prompt: "Write the Overview section as the final consolidation summary that gives a brief overview of {{topic}} and what it does."
+      include:
+        - use-intro
+        - use-doc-guide
+        - think-research
+        - validate
+        - style
+  - create-todo-list:
+      prompt: "Task a sub-agent with creating a todo list of unpopulated sections in the {{topic-doc}}. Place the todo list as a markdown todo called {{topic-doc-root}}/todo.md list of [ ] elements (not a list format, just empty [ ] blocks). Continue adding todo items until every unpopulated section is accounted for. When the sub-agent reports as finished. task another sub-agent to check the work, ensuring that every unpopulated section has been filled out."
+  - fill-out-sections:
+      prompt: "Fill out the section '{{loop.item.text}}' in the {{topic-doc}} (todo #{{loop.item.number}})."
+      loop:
+        type: todo-list
+        source: "{{topic-doc-root}}/todo.md"
+        mark-in-progress: true
+        mark-complete: true
+      include:
+        - use-doc-guide
+        - think-research
+        - validate

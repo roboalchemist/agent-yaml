@@ -1,0 +1,188 @@
+name: JSON Loop - Error Handling and Retry
+description: |
+  Tests error handling strategies and retry mechanisms for JSON loops.
+  Demonstrates: skip and retry behaviors with max-attempts, at loop level
+  (loop retry with on-failure) and at task level (retry with on-validation-failure,
+  falling back to on-error).
+
+# Failures are deterministic: they come from post-task validators, never from the
+# agent (every agent call is expected to exit 0).
+# - Tests 1 and 2 use a command validator that rejects any item whose difficulty is
+#   "hard", so item 2 (Task B) fails validation on every attempt while items 1, 3
+#   and 4 always pass. Each rejection appends one line to a log file.
+# - Test 3 uses a command validator that fails the first check of each item and
+#   passes the second one.
+#
+# Expected outcome of a correct run (16 agent calls, exit code 0):
+# - test-skip-on-failure:   items 1, 3, 4 succeed; item 2 fails once and is skipped
+# - test-retry-logic:       items 1, 3, 4 succeed; item 2 fails all 3 attempts, then
+#                           the loop moves on to the next item
+# - test-filter-with-retry: only items 1 and 3 run; each fails its first check and
+#                           succeeds on the retry
+
+directory: /tmp
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 300
+
+# A loop that ends with a failed item reports "partial", which stops the workflow
+# under the default on-error: fail. With continue, the later tests and the final
+# report still run after tests 1 and 2, and the workflow exits 0.
+on-error: continue
+
+template-variables:
+  test-dir: "{{directory}}/agent-yaml-json-error-test"
+  data-file: "{{test-dir}}/tasks.json"
+  output-dir: "{{test-dir}}/output"
+
+task:
+  - setup:
+      prompt: |
+        If {{test-dir}} already exists, delete it so the run starts clean.
+        Create directory: {{test-dir}}
+        Create directory: {{output-dir}}
+
+        Create {{data-file}} with:
+        [
+          {"id": 1, "name": "Task A", "difficulty": "easy"},
+          {"id": 2, "name": "Task B", "difficulty": "hard"},
+          {"id": 3, "name": "Task C", "difficulty": "easy"},
+          {"id": 4, "name": "Task D", "difficulty": "medium"}
+        ]
+
+  # Test 1: loop-level on-failure: skip
+  # There is no task-level retry block, so item 2's validation failure raises (task
+  # on-error does not apply to validation failures) and the loop skips the item
+  # without retrying. skip-rejections.log ends with 1 line.
+  - test-skip-on-failure:
+      prompt: |
+        TEST: on-failure: skip
+
+        Process task {{loop.item.id}}: {{loop.item.name}}
+
+        Create {{output-dir}}/skip-task-{{loop.item.id}}.txt with:
+        Task: {{loop.item.name}}
+        Difficulty: {{loop.item.difficulty}}
+        Status: Processed
+
+        Then create {{test-dir}}/skip-test-report.txt with:
+        "✅ Skip Test Complete
+        Strategy: on-failure: skip
+        Expected: Tasks 1, 3, 4 complete; Task 2 fails validation and is skipped
+        Iterations: {{loop.total}}"
+      loop:
+        type: json
+        source: "{{data-file}}"
+        retry:
+          max-attempts: 1
+          on-failure: skip
+      validate:
+        - file-exists: "{{output-dir}}/skip-task-{{loop.item.id}}.txt"
+        - command:
+            cmd: "[ '{{loop.item.difficulty}}' != hard ] || { echo 'task {{loop.item.id}} rejected' >> '{{output-dir}}/skip-rejections.log'; exit 1; }"
+
+  # Test 2: loop-level on-failure: retry with max-attempts: 3
+  # Again no task-level retry block: each failed validation raises and the loop
+  # re-runs the item. Item 2 fails all 3 attempts (retry-rejections.log ends with
+  # 3 lines), then the loop continues with the next item.
+  - test-retry-logic:
+      prompt: |
+        TEST: Retry with max-attempts
+
+        Process task {{loop.item.id}}: {{loop.item.name}}
+
+        Create {{output-dir}}/retry-task-{{loop.item.id}}.txt with:
+        Task: {{loop.item.name}}
+        Difficulty: {{loop.item.difficulty}}
+        Status: Completed
+
+        Then create {{test-dir}}/retry-test-report.txt with:
+        "✅ Retry Test Complete
+        Strategy: max-attempts: 3, on-failure: retry
+        Expected: Tasks 1, 3, 4 pass on the first attempt; Task 2 fails all 3 attempts
+        Processed: {{loop.total}} tasks"
+      loop:
+        type: json
+        source: "{{data-file}}"
+        retry:
+          max-attempts: 3
+          on-failure: retry
+      validate:
+        - file-exists: "{{output-dir}}/retry-task-{{loop.item.id}}.txt"
+        - command:
+            cmd: "[ '{{loop.item.difficulty}}' != hard ] || { echo 'task {{loop.item.id}} rejected' >> '{{output-dir}}/retry-rejections.log'; exit 1; }"
+
+  # Test 3: filter + task-level retry
+  # The filter keeps only the easy items (1 and 3). The command validator fails the
+  # first check of each item (its .checks file has 1 line) and passes the second, so
+  # retry.on-validation-failure: retry re-runs the agent once and both items succeed
+  # on attempt 2. Had an item still failed after max-attempts, on-error: skip would
+  # mark it skipped and the loop would move on.
+  - test-filter-with-retry:
+      prompt: |
+        TEST: Filtering combined with retry
+
+        Process easy task {{loop.item.id}}: {{loop.item.name}}
+
+        Create {{output-dir}}/easy-task-{{loop.item.id}}.txt with:
+        Task: {{loop.item.name}}
+        Difficulty: {{loop.item.difficulty}}
+        Status: Completed (filtered + retry enabled)
+
+        Then create {{test-dir}}/filter-retry-report.txt with:
+        "✅ Filter + Retry Test Complete
+        Filter: difficulty = easy
+        Retry: max-attempts: 2, on-validation-failure: retry
+        Expected: Only tasks with difficulty=easy processed, each passing on attempt 2
+        Processed: {{loop.total}} tasks (should be 2: Tasks A and C)"
+      loop:
+        type: json
+        source: "{{data-file}}"
+        filter:
+          key: "difficulty"
+          value: "easy"
+      validate:
+        - file-exists: "{{output-dir}}/easy-task-{{loop.item.id}}.txt"
+        - command:
+            cmd: "echo check >> '{{output-dir}}/easy-task-{{loop.item.id}}.checks'; [ $(wc -l < '{{output-dir}}/easy-task-{{loop.item.id}}.checks') -ge 2 ]"
+      retry:
+        max-attempts: 2
+        on-validation-failure: retry
+      on-error: skip
+
+  - validate-error-handling:
+      prompt: |
+        Create final validation at {{test-dir}}/ERROR-HANDLING-RESULTS.txt:
+
+        "=== ERROR HANDLING TEST RESULTS ===
+
+        Timestamp: {{datetime}}
+
+        TEST SCENARIOS:
+        1. Skip on Failure
+           - Strategy: max-attempts: 1, on-failure: skip
+           - Expected: Task 2 rejected once and skipped; Tasks 1, 3, 4 complete
+           - Task 2 rejections: $(wc -l < {{output-dir}}/skip-rejections.log) (expected 1)
+
+        2. Retry Logic
+           - Strategy: max-attempts: 3, on-failure: retry
+           - Expected: Task 2 retried until max-attempts, then the loop continues
+           - Task 2 rejections: $(wc -l < {{output-dir}}/retry-rejections.log) (expected 3)
+
+        3. Filter with Retry
+           - Filter: difficulty = easy
+           - Retry: max-attempts: 2, on-validation-failure: retry (fallback: on-error: skip)
+           - Expected: Only 2 easy tasks processed, each passing on its second attempt
+           - Files created: $(ls -1 {{output-dir}}/easy-task-*.txt 2>/dev/null | wc -l) (expected 2)
+           - Checks for task 1: $(wc -l < {{output-dir}}/easy-task-1.checks) (expected 2)
+           - Checks for task 3: $(wc -l < {{output-dir}}/easy-task-3.checks) (expected 2)
+
+        RETRY STRATEGIES VALIDATED:
+        ✅ on-failure: skip (continue to next item)
+        ✅ on-failure: retry (retry failed items up to max-attempts)
+        ✅ retry.on-validation-failure: retry (re-run until validation passes)
+        ✅ max-attempts configuration
+        ✅ Combination with filtering
+
+        All error handling scenarios completed successfully!"

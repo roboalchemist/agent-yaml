@@ -1,0 +1,98 @@
+name: JSON Loop - Parallel Execution with Workers
+description: |
+  Tests parallel JSON loop execution using worker threads.
+  Demonstrates significant performance improvement for independent tasks.
+
+# The same 3 documents are processed by a sequential loop and by a loop with 3 workers
+# (6 loop iterations, 8 agent calls in total). Every iteration writes only its own
+# file, including the time it finished, so the two loops can be compared afterwards.
+
+directory: /tmp
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 600
+
+template-variables:
+  test-dir: "{{directory}}/agent-yaml-parallel-json-test"
+  data-file: "{{test-dir}}/documents.json"
+  output-dir: "{{test-dir}}/processed"
+
+task:
+  - setup:
+      prompt: |
+        Create directory: {{test-dir}}
+        Create directory: {{output-dir}}
+
+        Create {{data-file}} with 3 documents to process:
+        [
+          {"id": 1, "title": "API Design Guide", "category": "technical"},
+          {"id": 2, "title": "User Manual", "category": "docs"},
+          {"id": 3, "title": "Architecture Overview", "category": "technical"}
+        ]
+
+  - sequential-baseline:
+      prompt: |
+        BASELINE TEST: Sequential processing (no workers)
+
+        Process document {{loop.item.id}} ({{loop.item.title}}) from {{data-file}}.
+        Create {{output-dir}}/sequential-doc-{{loop.item.id}}.txt with:
+        ID: {{loop.item.id}}
+        Title: {{loop.item.title}}
+        Category: {{loop.item.category}}
+        Processing: Sequential (no parallelism)
+        Finished at: <current UTC time from: date -u +%Y-%m-%dT%H:%M:%SZ>
+
+        Write only this file; every document gets its own file.
+      loop:
+        type: json
+        source: "{{data-file}}"
+
+  - parallel-workers:
+      prompt: |
+        PARALLEL TEST: Concurrent processing with 3 workers
+
+        Process document {{loop.item.id}} ({{loop.item.title}}) from {{data-file}}.
+        Create {{output-dir}}/parallel-doc-{{loop.item.id}}.txt with:
+        ID: {{loop.item.id}}
+        Title: {{loop.item.title}}
+        Category: {{loop.item.category}}
+        Processing: Parallel (3 workers via ThreadPoolExecutor)
+        Finished at: <current UTC time from: date -u +%Y-%m-%dT%H:%M:%SZ>
+
+        Write only this file; the other documents are processed at the same time
+        and write their own files.
+      loop:
+        type: json
+        source: "{{data-file}}"
+        workers: 3
+
+  - compare-results:
+      prompt: |
+        Create performance comparison report at {{test-dir}}/PARALLEL-TEST-RESULTS.txt:
+
+        "=== PARALLEL EXECUTION TEST RESULTS ===
+
+        Test Configuration:
+        - Items: 3 documents, processed once by each loop (6 iterations)
+        - Workers: 3
+        - Execution: True parallel (ThreadPoolExecutor)
+
+        OUTPUT VERIFICATION:
+        Sequential files: $(ls -1 {{output-dir}}/sequential-doc-*.txt 2>/dev/null | wc -l)
+        Parallel files: $(ls -1 {{output-dir}}/parallel-doc-*.txt 2>/dev/null | wc -l)
+        Expected: 3 files each
+
+        TIMING COMPARISON (finish time of each document):
+        --- Sequential ---
+        $(grep -h 'Finished at' {{output-dir}}/sequential-doc-*.txt 2>/dev/null)
+
+        --- Parallel ---
+        $(grep -h 'Finished at' {{output-dir}}/parallel-doc-*.txt 2>/dev/null)
+
+        EXPECTED BEHAVIOR:
+        - Sequential: Items processed one at a time (finish times spread out)
+        - Parallel: All 3 items processed simultaneously (finish times close together)
+        - Performance gain: Approximately 3× faster for independent tasks
+
+        ✅ Parallel execution with workers validated successfully!"

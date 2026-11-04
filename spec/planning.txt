@@ -1,0 +1,134 @@
+# Future Planning Items
+
+## Logging Configuration
+Add configurable logging to capture meta-agent and CLI output:
+- Log to file or stdout
+- Configurable log levels (DEBUG, INFO, WARN, ERROR)
+- Capture CLI stdout/stderr for debugging
+- Structured logging format (JSON, text)
+- Per-task log files
+
+Example:
+```yaml
+logging:
+  level: INFO
+  output: file
+  file: "workflow.log"
+  format: json
+  capture-cli-output: true  # Save CLI stdout/stderr
+```
+
+## Full Jinja2 Support
+Expand template variable support to full Jinja2 syntax:
+- Filters: `{{var | upper}}`, `{{var | default('fallback')}}`
+- Conditionals: `{% if condition %}...{% endif %}`
+- String manipulation: `{{var | replace('old', 'new')}}`
+- Math operations: `{{count + 1}}`
+
+**Use cases:**
+- Conditional execution without branching YAML
+- Dynamic prompt construction
+- String formatting
+- Branching logic via template conditionals
+
+Example:
+```yaml
+template-variables:
+  environment: "production"
+
+task:
+  - deploy:
+      prompt: "{% if environment == 'production' %}Deploy carefully{% else %}Deploy quickly{% endif %}"
+```
+
+## ✅ COMPLETED: Validators (v0.2.0)
+Post-task validation mechanisms implemented with 6 validator types:
+- ✅ file-exists: Check if file path exists
+- ✅ file-not-empty: Check if file has content
+- ✅ contains: Check if file contains text substring
+- ✅ json-valid: Validate JSON syntax
+- ✅ yaml-valid: Validate YAML syntax
+- ✅ command: Run custom validation script
+
+Example:
+```yaml
+task:
+  - analyze:
+      prompt: "Analyze codebase and write to analysis.md"
+      validate:
+        - file-exists: "analysis.md"
+        - file-not-empty: "analysis.md"
+        - contains:
+            file: "analysis.md"
+            text: "## Summary"
+```
+
+## ✅ COMPLETED: Retry Mechanisms (v0.2.0)
+Retry logic implemented with validation failure handling:
+- ✅ max-attempts: Number of times to retry a task
+- ✅ on-validation-failure: retry | skip | fail
+- ✅ Loop-level retry: Works with all loop types
+
+Example:
+```yaml
+task:
+  - flaky-task:
+      prompt: "Generate report"
+      validate:
+        - file-exists: "report.md"
+      retry:
+        max-attempts: 3
+        on-validation-failure: retry
+```
+
+Note: Validators run after task completes. If validation fails, the entire task prompt is re-executed.
+
+## Workflow State Management (Long-term)
+Consider adding resumable workflow state:
+- State file tracking completed tasks
+- Resume from failure point with --resume flag
+- Checkpoint files for long-running workflows
+- State cleanup policies
+
+Note: Ordered execution provides inherent state (completed tasks don't re-run in same session), but explicit state management would enable cross-session resumability.
+
+Example state file:
+```json
+{
+  "workflow": "example-workflow.yaml",
+  "started": "2025-10-02T00:00:00Z",
+  "completed_tasks": ["task-1", "task-2"],
+  "current_task": "task-3"
+}
+```
+
+## Task-Level Configuration
+Add per-task configuration options to override global settings:
+- timeout: Per-task timeout override
+- working-dir: Override working directory for specific tasks
+- mcps: Specify which MCPs to enable for this task
+- skip-if: Conditional execution based on conditions
+- env: Task-specific environment variables
+
+Example:
+```yaml
+task:
+  - my-task:
+      prompt: "..."
+      config:
+        timeout: 600
+        working-dir: "./sub"
+        mcps: [notion, linear]
+        skip-if: "{{some-condition}}"
+```
+
+## ✅ COMPLETED: Additional Loop Types
+- ✅ JSON array iteration (v0.3.0) - With nested extraction, AND/OR filtering, primitives
+- ✅ JSONL format (v0.3.0) - Streaming line-by-line processing
+
+## Additional Loop Types (Future)
+- Database query results (iterate over SQL query rows)
+- API pagination (iterate over paginated API responses)
+- Directory tree traversal (recursive directory walking)
+- Git commit history (iterate over commits in range)
+- Test result sets (JUnit XML, pytest output)

@@ -1,0 +1,51 @@
+# Example 04: TodoList Loop + Checkpointing
+# Tests: TodoList loop, mark-in-progress, mark-complete, checkpoint/resume
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 150
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-04"
+  todo-file: "{{output-dir}}/tasks.md"
+
+task:
+  - setup:
+      prompt: |
+        Create directory {{output-dir}} and file {{todo-file}} with:
+        "# Test Tasks
+
+        - [ ] Analyze project structure
+        - [ ] Review code quality
+        - [ ] Generate test report"
+
+  - process-todos:
+      loop:
+        type: todo-list
+        source: "{{output-dir}}/tasks.md"
+        mark-in-progress: true
+        mark-complete: true
+        checkpoint-file: "{{output-dir}}/checkpoint.json"
+      prompt: |
+        Processing todo item: {{loop.item.text}}
+
+        Create file {{output-dir}}/todo-{{loop.item.number}}.log with:
+        "Item {{loop.item.number}}/{{loop.total}}: {{loop.item.text}}
+        Line number: {{loop.item.line}}
+        Index: {{loop.index}}
+        Remaining: {{loop.remaining}}
+        Status: PROCESSED
+        Timestamp: {{datetime}}"
+
+  - summary:
+      prompt: |
+        Create file {{output-dir}}/todolist-summary.txt with:
+        "=== TodoList Loop Summary ===
+        Source: {{todo-file}}
+        Total items: 3
+        All items marked complete
+        Checkpoint: {{output-dir}}/checkpoint.json
+        Timestamp: {{datetime}}"

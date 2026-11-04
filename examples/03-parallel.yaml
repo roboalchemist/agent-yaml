@@ -1,0 +1,46 @@
+# Example 03: Include Concatenation + Variables
+# Tests: Include concatenation, template variables
+# Note: True parallel execution tested in example 07
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-03"
+
+includes:
+  header: "This is an include concatenation test."
+  footer: "Includes are appended to prompts."
+
+task:
+  - setup:
+      prompt: "Create directory {{output-dir}}"
+
+  - task-with-includes:
+      prompt: |
+        Create file {{output-dir}}/task-with-includes.log with:
+        "Task executed at {{datetime}}
+        This task demonstrates include concatenation."
+      include:
+        - header
+        - footer
+
+  - task-partial-includes:
+      prompt: |
+        Create file {{output-dir}}/partial-includes.log with:
+        "Task with partial includes
+        Only header included"
+      include:
+        - header
+
+  - summary:
+      prompt: |
+        Create file {{output-dir}}/summary.txt with:
+        "=== Include Test Summary ===
+        Demonstrated include concatenation
+        header and footer includes tested
+        Completed at: {{datetime}}"

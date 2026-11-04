@@ -1,0 +1,40 @@
+# Example 02: Sequential Tasks + Template Variables
+# Tests: Sequential execution, custom template variables, variable interpolation
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 90
+
+template-variables:
+  test-id: "seq-test-02"
+  output-dir: "{{directory}}/agent-yaml-test-02"
+  report-file: "{{output-dir}}/report.txt"
+
+task:
+  - setup:
+      prompt: |
+        Create directory {{output-dir}} and file {{output-dir}}/setup.log with:
+        "Setup phase completed
+        Test ID: {{test-id}}
+        User: {{user}}
+        Timestamp: {{datetime}}"
+
+  - process:
+      prompt: |
+        Create file {{output-dir}}/process.log with:
+        "Processing phase completed
+        Test ID: {{test-id}}
+        Timestamp: {{datetime}}"
+
+  - finalize:
+      prompt: |
+        Create file {{report-file}} with:
+        "=== Sequential Test Report ===
+        Test ID: {{test-id}}
+        Phases: setup, process, finalize
+        Status: COMPLETE
+        User: {{user}}
+        Timestamp: {{datetime}}"

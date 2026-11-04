@@ -1,0 +1,99 @@
+# Example 23: Command Validator - Negative Test
+# Demonstrates command validator failure when validation script exits non-zero
+#
+# This is a NEGATIVE test - validation should FAIL (as designed)
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+on-error: continue  # Continue workflow even when validation fails
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-23-{{datetime}}"
+  report-file: "{{output-dir}}/incomplete-report.md"
+  validator-script: "{{output-dir}}/validate.sh"
+
+task:
+  - create-directory:
+      prompt: |
+        Create directory {{output-dir}} if it doesn't exist:
+        mkdir -p {{output-dir}}
+
+  - create-validator-script:
+      prompt: |
+        Create validation script at {{validator-script}}:
+
+        #!/bin/bash
+        # Custom validator: Check if markdown file has required structure
+        FILE="$1"
+
+        if [ ! -f "$FILE" ]; then
+          echo "Error: File not found: $FILE"
+          exit 1
+        fi
+
+        # Check for required sections
+        if ! grep -q "^# " "$FILE"; then
+          echo "Error: Missing main header (# Title)"
+          exit 1
+        fi
+
+        if ! grep -q "^## " "$FILE"; then
+          echo "Error: Missing section headers (## Section)"
+          exit 1
+        fi
+
+        # Check minimum length (at least 200 characters)
+        SIZE=$(wc -c < "$FILE")
+        if [ "$SIZE" -lt 200 ]; then
+          echo "Error: File too short ($SIZE bytes, minimum 200 required)"
+          exit 1
+        fi
+
+        echo "✅ Validation passed"
+        exit 0
+
+        Make it executable:
+        chmod +x {{validator-script}}
+
+  - generate-incomplete-report:
+      prompt: |
+        Create INCOMPLETE report file {{report-file}} (too short, will fail validation):
+
+        # Short Report
+
+        This report is too short and will fail the custom validator's
+        minimum length requirement of 200 characters.
+
+        Use echo or cat to write this exact text to the file.
+
+      validate:
+        - file-exists: "{{report-file}}"
+        - file-not-empty: "{{report-file}}"
+        - command:
+            cmd: "bash {{validator-script}} {file}"
+            file: "{{report-file}}"
+
+      on-error: continue  # Task-level override
+      retry:
+        max-attempts: 1
+        on-validation-failure: retry  # Will exhaust and fall back to error_strategy
+
+  - verify-failure-detected:
+      prompt: |
+        The previous task should have failed custom command validation.
+
+        Verify that:
+        1. File {{report-file}} exists
+        2. File has content (not empty)
+        3. File is too short (less than 200 bytes)
+        4. command validator failed (exit code 1)
+
+        Check file size:
+        wc -c {{report-file}}
+
+        Then print: "✅ Test passed - command validator correctly detected validation failure"

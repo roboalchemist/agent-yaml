@@ -1,0 +1,92 @@
+# Example 20: Command Validator
+# Demonstrates command validator for custom validation scripts
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-20-{{datetime}}"
+  report-file: "{{output-dir}}/report.md"
+  validator-script: "{{output-dir}}/validate.sh"
+
+task:
+  - create-directory:
+      prompt: |
+        Create directory {{output-dir}} if it doesn't exist:
+        mkdir -p {{output-dir}}
+
+  - create-validator-script:
+      prompt: |
+        Create validation script at {{validator-script}}:
+
+        #!/bin/bash
+        # Custom validator: Check if markdown file has required structure
+        FILE="$1"
+
+        if [ ! -f "$FILE" ]; then
+          echo "Error: File not found: $FILE"
+          exit 1
+        fi
+
+        # Check for required sections
+        if ! grep -q "^# " "$FILE"; then
+          echo "Error: Missing main header (# Title)"
+          exit 1
+        fi
+
+        if ! grep -q "^## " "$FILE"; then
+          echo "Error: Missing section headers (## Section)"
+          exit 1
+        fi
+
+        # Check minimum length (at least 100 characters)
+        SIZE=$(wc -c < "$FILE")
+        if [ "$SIZE" -lt 100 ]; then
+          echo "Error: File too short ($SIZE bytes, minimum 100)"
+          exit 1
+        fi
+
+        echo "✅ Validation passed"
+        exit 0
+
+        Make it executable:
+        chmod +x {{validator-script}}
+
+  - generate-report:
+      prompt: |
+        Create report file {{report-file}} with proper markdown structure:
+
+        # Validation Test Report
+
+        Generated at {{datetime}}
+
+        ## Summary
+
+        This report demonstrates custom command validation.
+
+        ## Details
+
+        The validator script checks for:
+        - Main header present
+        - Section headers present
+        - Minimum file size of 100 bytes
+
+        ## Results
+
+        All validation criteria met successfully.
+
+      validate:
+        - file-exists: "{{report-file}}"
+        - file-not-empty: "{{report-file}}"
+        - command:
+            cmd: "bash {{validator-script}} {file}"
+            file: "{{report-file}}"
+
+  - verify-custom-validation:
+      prompt: |
+        Read {{report-file}} and confirm it passed custom validation.
+        Print "✅ Custom command validation passed!" to stdout.

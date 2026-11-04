@@ -1,0 +1,50 @@
+# Example 06: Glob Loop + Error Handling
+# Tests: Glob loop, pattern matching, on-error: continue
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 150
+
+on-error: continue
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-06"
+  data-dir: "{{output-dir}}/data"
+
+task:
+  - setup:
+      prompt: |
+        Create directories {{output-dir}} and {{data-dir}}
+
+        Create files:
+        - {{data-dir}}/file1.txt with "Content 1"
+        - {{data-dir}}/file2.txt with "Content 2"
+        - {{data-dir}}/file3.txt with "Content 3"
+        - {{data-dir}}/readme.md with "# README"
+
+  - process-txt-files:
+      loop:
+        type: glob
+        pattern: "{{data-dir}}/*.txt"
+      prompt: |
+        Processing file: {{loop.item.filename}}
+
+        Create file {{output-dir}}/processed-{{loop.item.filename}}.log with:
+        "File: {{loop.item.filename}}
+        Path: {{loop.item.path}}
+        Extension: {{loop.item.extension}}
+        Index: {{loop.index}}/{{loop.total}}
+        Timestamp: {{datetime}}"
+
+  - summary:
+      prompt: |
+        Create file {{output-dir}}/glob-summary.txt with:
+        "=== Glob Loop Summary ===
+        Pattern: {{data-dir}}/*.txt
+        Files matched: 3
+        Error strategy: continue
+        All .txt files processed
+        Timestamp: {{datetime}}"

@@ -1,0 +1,26 @@
+# Base Configuration for Documentation Workflows
+# Contains unused variables and includes that may be useful for future workflows
+#
+# NOTE: This is not a complete workflow and cannot be run directly.
+# Copy these variables/includes into your workflow as needed.
+
+template-variables:
+  # Todo tracking file for manual todo-list management
+  todo-file: "todo.txt"
+
+# Unused includes (may be useful for future workflows)
+includes:
+  # Validation with sub-agents after additions
+  validate-additions: "After the additions have been made, use sub-agents to validate the just-written section by cross-referencing claims against gathered documents, checking consistency with previous sections, verifying all statements are supported by evidence, ensuring terminology consistency, and confirming section completeness."
+
+  # Code citation reminder
+  cite-code: "Cite the code"
+
+  # Agent profile selection
+  use-agent: "Look through the agent profiles, and use the one most appropriate for the task."
+
+  # Manual todo-list progression
+  do-next-todo: "Look for the next todo item in the file {{todo-file}} and find the next open todo item [ ] (unassigned and uncompleted). It should not be [-] (in-progress) or [x] (completed). For the next open todo item, mark it as in progress ([-]). If there are no more todo elements, you may exit immediately."
+
+  # Duplicate of read-current-doc (kept for reference)
+  read-current-topic-doc: "Look at the current state of the topic document at {{topic-doc}} its entirety to understand what the current state of it is before editing it."

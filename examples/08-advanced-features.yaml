@@ -1,0 +1,116 @@
+# Example 08: Advanced Features
+# Tests: {{gitroot}}, ensure block, checkpoint/resume, --var flag override
+# Run normally: agent-yaml run examples/08-advanced-features.yaml
+# Test resume: Ctrl+C mid-loop, then run the same command again. Resuming is configured
+#   on the loop itself (checkpoint-file + resume: true) and tasks.md is kept, so items
+#   already marked [x] are not processed again. Delete the output directory to start over.
+# Test var override: agent-yaml run examples/08-advanced-features.yaml --var test-name=custom --var max-items=2
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 180
+
+# Ensure required tools exist before running
+ensure:
+  tools:
+    - git
+    - python3
+
+template-variables:
+  test-name: "advanced-features"
+  output-dir: "{{directory}}/agent-yaml-test-08"
+  max-items: "3"
+
+includes:
+  gitroot-info: "Git repository root: {{gitroot}}"
+  test-context: "Test: {{test-name}} with {{max-items}} items"
+
+task:
+  # Phase 1: Setup using {{gitroot}}
+  - setup:
+      prompt: |
+        Create directory structure:
+        - {{output-dir}}
+        - {{output-dir}}/repo-info
+
+        Create {{output-dir}}/repo-info/gitroot.txt with:
+        "Git Repository Root: {{gitroot}}
+        Test Name: {{test-name}}
+        Max Items: {{max-items}}
+        User: {{user}}
+        Timestamp: {{datetime}}"
+      include:
+        - gitroot-info
+
+  # Phase 2: Create checkpoint source file (kept if it already exists, so a re-run
+  # after an interruption resumes instead of starting over)
+  - create-checkpoint-source:
+      prompt: |
+        If {{output-dir}}/tasks.md already exists, leave it unchanged (it holds the
+        progress of an interrupted run). Otherwise create {{output-dir}}/tasks.md with:
+        "# Checkpoint Test Tasks
+
+        - [ ] Task 1: Process first item
+        - [ ] Task 2: Process second item
+        - [ ] Task 3: Process third item
+        - [ ] Task 4: Process fourth item"
+
+  # Phase 3: Loop with checkpoint (can be resumed)
+  # Only "[ ]" items are processed, so a re-run skips items already marked [x]
+  # (an item interrupted mid-run stays "[-]"; change it back to "[ ]" to redo it).
+  # The checkpoint is saved after every item; resume: true reloads its
+  # completed/failed lists on the next run.
+  - loop-with-checkpoint:
+      loop:
+        type: todo-list
+        source: "{{output-dir}}/tasks.md"
+        mark-in-progress: true
+        mark-complete: true
+        checkpoint-file: "{{output-dir}}/.checkpoint.json"
+        resume: true
+      prompt: |
+        Process: {{loop.item.text}}
+
+        Create {{output-dir}}/checkpoint-log-{{loop.item.number}}.txt with:
+        "Checkpoint Task {{loop.item.number}}/{{loop.total}}
+        Task: {{loop.item.text}}
+        Progress: {{loop.index}}/{{loop.total}}
+        Test: {{test-name}}
+        Max Items: {{max-items}}
+        Timestamp: {{datetime}}"
+      include:
+        - test-context
+
+  # Phase 4: Summary
+  - finalize:
+      prompt: |
+        Create {{output-dir}}/ADVANCED-SUMMARY.txt with:
+        "=== ADVANCED FEATURES TEST SUMMARY ===
+
+        Test Name: {{test-name}} (override with --var test-name=custom)
+        Max Items: {{max-items}} (override with --var max-items=N)
+        Git Root: {{gitroot}}
+        User: {{user}}
+        Timestamp: {{datetime}}
+
+        FEATURES TESTED:
+        ✅ {{gitroot}} reserved variable
+        ✅ ensure block (tools: git, python3)
+        ✅ checkpoint/resume ({{output-dir}}/.checkpoint.json)
+        ✅ --var flag override (test-name, max-items)
+        ✅ TodoList loop with mark-in-progress/complete
+
+        TESTING INSTRUCTIONS:
+        1. Normal run: agent-yaml run examples/08-advanced-features.yaml
+        2. Resume test: Interrupt mid-loop (Ctrl+C), then run the same command again
+           (the loop has checkpoint-file + resume: true; tasks marked [x] are skipped)
+        3. Var override: --var test-name=custom --var max-items=2
+
+        OUTPUT LOCATION: {{output-dir}}/
+        CHECKPOINT FILE: {{output-dir}}/.checkpoint.json (for resume)"
+      include:
+        - gitroot-info
+        - test-context

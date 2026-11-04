@@ -1,0 +1,46 @@
+# Example 15: Post-Task Validators - file-not-empty Negative Test
+# Demonstrates validation failure when file is empty
+#
+# This is a NEGATIVE test - validation should FAIL (as designed)
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+on-error: continue  # Continue workflow even when validation fails
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-15-{{datetime}}"
+  test-file: "{{output-dir}}/empty-file.md"
+
+task:
+  - test-file-not-empty-negative:
+      prompt: |
+        Create an EMPTY file at {{test-file}}:
+
+        mkdir -p {{output-dir}}
+        touch {{test-file}}
+
+        Do NOT write any content to the file. It should be 0 bytes.
+
+        This is a negative test - we expect the file-not-empty validator
+        to fail because the file exists but is empty.
+
+      validate:
+        - file-not-empty: "{{test-file}}"
+
+      on-error: continue  # Task-level override
+
+  - verify-failure-detected:
+      prompt: |
+        The previous task should have failed validation.
+
+        Verify that:
+        1. File {{test-file}} exists
+        2. File is empty (0 bytes)
+        3. file-not-empty validator failed
+
+        Then print: "✅ Test passed - file-not-empty validator correctly detected empty file"

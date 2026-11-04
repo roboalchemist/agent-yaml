@@ -1,0 +1,66 @@
+name: JSON Loop - Multiple Filter Conditions
+description: |
+  Demonstrates filtering JSON arrays with multiple conditions using AND/OR operators.
+  Filters can use simple key/value matching or complex multi-condition logic.
+
+cli-agent: opencode
+directory: /tmp
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 300
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-29"
+
+task:
+  - setup:
+      prompt: |
+        Create directories {{output-dir}}/data and {{output-dir}}/output.
+
+        Create a JSON file at {{output-dir}}/data/tasks.json with:
+        [
+          {"id": 1, "title": "Deploy API", "priority": "high", "status": "active"},
+          {"id": 2, "title": "Fix bug", "priority": "critical", "status": "active"},
+          {"id": 3, "title": "Update docs", "priority": "low", "status": "active"},
+          {"id": 4, "title": "Refactor code", "priority": "high", "status": "completed"}
+        ]
+
+  - process-urgent-active-tasks:
+      loop:
+        type: json
+        source: "{{output-dir}}/data/tasks.json"
+        filter:
+          conditions:
+            - key: "status"
+              value: "active"
+            - key: "priority"
+              value: "high"
+          operator: "AND"
+      prompt: |
+        Process urgent active task: {{loop.item.title}}
+
+        Create a file at {{output-dir}}/output/urgent-task-{{loop.item.id}}.txt with:
+        ID: {{loop.item.id}}
+        Title: {{loop.item.title}}
+        Priority: {{loop.item.priority}}
+        Status: {{loop.item.status}}
+
+  - process-high-priority-tasks:
+      loop:
+        type: json
+        source: "{{output-dir}}/data/tasks.json"
+        filter:
+          conditions:
+            - key: "priority"
+              value: "high"
+            - key: "priority"
+              value: "critical"
+          operator: "OR"
+      prompt: |
+        Process high-priority task: {{loop.item.title}}
+
+        Create a file at {{output-dir}}/output/priority-task-{{loop.item.id}}.txt with:
+        This is a high or critical priority task:
+        - ID: {{loop.item.id}}
+        - Title: {{loop.item.title}}
+        - Priority: {{loop.item.priority}}

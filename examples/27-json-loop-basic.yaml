@@ -1,0 +1,38 @@
+name: JSON Loop - Basic Object Iteration
+description: |
+  Demonstrates basic JSON array iteration with object elements.
+  Each item in the array becomes available via {{loop.item.property}}.
+
+cli-agent: opencode
+directory: /tmp
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 300
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-27"
+
+task:
+  - setup:
+      prompt: |
+        Create directories {{output-dir}}/data and {{output-dir}}/output.
+
+        Create a JSON file at {{output-dir}}/data/users.json with the following content:
+        [
+          {"name": "Alice", "role": "admin", "age": 30},
+          {"name": "Bob", "role": "user", "age": 25},
+          {"name": "Charlie", "role": "guest", "age": 35}
+        ]
+
+  - process-users:
+      loop:
+        type: json
+        source: "{{output-dir}}/data/users.json"
+      prompt: |
+        Process user: {{loop.item.name}}
+
+        Create a file at {{output-dir}}/output/user-{{loop.index}}.txt with:
+        - Name: {{loop.item.name}}
+        - Role: {{loop.item.role}}
+        - Age: {{loop.item.age}}
+        - Iteration index (0-based): {{loop.index}} of {{loop.total}} items

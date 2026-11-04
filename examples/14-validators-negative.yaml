@@ -1,0 +1,40 @@
+# Example 14: Post-Task Validators - Negative Test
+# Demonstrates validation failure when file is not created
+#
+# This is a NEGATIVE test - validation should FAIL (as designed)
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+on-error: continue  # Continue workflow even when validation fails
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-14-{{datetime}}"
+  expected-file: "{{output-dir}}/missing-file.md"
+
+task:
+  - test-file-exists-negative:
+      prompt: |
+        DO NOT create any files.
+        Just print "Skipping file creation (negative test)".
+
+        This is a negative test - we expect validation to fail because
+        the file {{expected-file}} will not exist.
+
+      validate:
+        - file-exists: "{{expected-file}}"
+
+      on-error: continue  # Task-level override
+
+  - verify-failure-detected:
+      prompt: |
+        The previous task should have failed validation.
+
+        Print: "✅ Test passed - validation correctly detected missing file"
+
+        This confirms the validator is working correctly by failing when
+        the expected file does not exist.

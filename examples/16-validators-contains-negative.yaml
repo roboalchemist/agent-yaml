@@ -1,0 +1,60 @@
+# Example 16: Post-Task Validators - contains Negative Test
+# Demonstrates validation failure when file doesn't contain expected text
+#
+# This is a NEGATIVE test - validation should FAIL (as designed)
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+on-error: continue  # Continue workflow even when validation fails
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-16-{{datetime}}"
+  test-file: "{{output-dir}}/incomplete-report.md"
+  expected-text: "## Summary"
+
+task:
+  - test-contains-negative:
+      prompt: |
+        Create file {{test-file}} with content that does NOT include the text "{{expected-text}}":
+
+        mkdir -p {{output-dir}}
+        cat > {{test-file}} << 'EOF'
+        # Incomplete Report
+
+        This report is missing the Summary section.
+
+        ## Introduction
+
+        Some introductory text here.
+
+        ## Details
+
+        Some details, but no Summary section.
+        EOF
+
+        This is a negative test - we expect the contains validator to fail
+        because the file does not contain "{{expected-text}}".
+
+      validate:
+        - contains:
+            file: "{{test-file}}"
+            text: "{{expected-text}}"
+
+      on-error: continue  # Task-level override
+
+  - verify-failure-detected:
+      prompt: |
+        The previous task should have failed validation.
+
+        Verify that:
+        1. File {{test-file}} exists
+        2. File has content (not empty)
+        3. File does NOT contain "{{expected-text}}"
+        4. contains validator failed
+
+        Then print: "✅ Test passed - contains validator correctly detected missing text"

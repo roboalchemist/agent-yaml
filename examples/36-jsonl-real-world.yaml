@@ -1,0 +1,160 @@
+name: JSONL Loop - Real-World Log Processing
+description: |
+  Real-world example of processing application logs in JSONL format.
+  Demonstrates filtering, aggregation, and reporting on streaming log data.
+
+directory: /tmp
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 300
+
+template-variables:
+  test-dir: "{{directory}}/agent-yaml-jsonl-logs-test"
+  logs-file: "{{test-dir}}/application.jsonl"
+  output-dir: "{{test-dir}}/analysis"
+  errors-dir: "{{output-dir}}/errors"
+  warnings-dir: "{{output-dir}}/warnings"
+  events-dir: "{{output-dir}}/events"
+
+task:
+  - setup:
+      prompt: |
+        Create directory: {{test-dir}}
+        Create directory: {{output-dir}}
+        Create directory: {{errors-dir}}
+        Create directory: {{warnings-dir}}
+        Create directory: {{events-dir}}
+
+        Create {{logs-file}} with realistic application logs (JSONL format):
+        {"timestamp": "2026-02-02T10:00:00Z", "level": "INFO", "service": "api", "message": "Server started", "user": "system"}
+        {"timestamp": "2026-02-02T10:01:15Z", "level": "ERROR", "service": "api", "message": "Database connection failed", "user": "alice"}
+        {"timestamp": "2026-02-02T10:01:20Z", "level": "WARN", "service": "api", "message": "Slow query detected", "user": "alice"}
+        {"timestamp": "2026-02-02T10:02:00Z", "level": "INFO", "service": "web", "message": "Page loaded", "user": "bob"}
+        {"timestamp": "2026-02-02T10:03:45Z", "level": "ERROR", "service": "db", "message": "Deadlock detected", "user": "system"}
+        {"timestamp": "2026-02-02T10:04:00Z", "level": "WARN", "service": "web", "message": "High memory usage", "user": "system"}
+        {"timestamp": "2026-02-02T10:05:30Z", "level": "INFO", "service": "api", "message": "Request completed", "user": "alice"}
+        {"timestamp": "2026-02-02T10:06:00Z", "level": "ERROR", "service": "api", "message": "Authentication failed", "user": "charlie"}
+
+  - process-errors:
+      prompt: |
+        TASK: Extract and analyze ERROR logs
+
+        Process error: {{loop.item.message}}
+        Create {{errors-dir}}/error-{{loop.index}}.txt with:
+        Service: {{loop.item.service}}
+        Message: {{loop.item.message}}
+        User: {{loop.item.user}}
+        Timestamp: {{loop.item.timestamp}}
+        Error index (0-based): {{loop.index}} of {{loop.total}} total errors
+
+        After all errors, create {{errors-dir}}/SUMMARY.txt with:
+        "Error Summary: {{loop.total}} errors found"
+      loop:
+        type: jsonl
+        source: "{{logs-file}}"
+        filter:
+          key: "level"
+          value: "ERROR"
+
+  - process-warnings:
+      prompt: |
+        TASK: Extract and analyze WARN logs
+
+        Process warning: {{loop.item.message}}
+        Create {{warnings-dir}}/warning-{{loop.index}}.txt with:
+        Service: {{loop.item.service}}
+        Message: {{loop.item.message}}
+        Timestamp: {{loop.item.timestamp}}
+        Warning index (0-based): {{loop.index}} of {{loop.total}} total warnings
+
+        After all warnings, create {{warnings-dir}}/SUMMARY.txt with:
+        "Warning Summary: {{loop.total}} warnings found"
+      loop:
+        type: jsonl
+        source: "{{logs-file}}"
+        filter:
+          key: "level"
+          value: "WARN"
+
+  # Parallel loop: each event writes only its own file (event-<index>.txt), so the
+  # 3 workers never write the same path. The per-service files are built by the
+  # next task, after every event has been recorded.
+  - process-events-parallel:
+      prompt: |
+        TASK: Record one log event (parallel processing)
+
+        Record event {{loop.index}} from the {{loop.item.service}} service
+        Create {{events-dir}}/event-{{loop.index}}.txt with:
+        - Service: {{loop.item.service}}
+        - Level: {{loop.item.level}}
+        - Message: {{loop.item.message}}
+
+        Write only this file. Other events are processed at the same time and
+        write their own files.
+      loop:
+        type: jsonl
+        source: "{{logs-file}}"
+        workers: 3
+
+  # Aggregation runs once, after the parallel loop has finished (list items run
+  # in order). Its summary file is named so that service-*.txt matches only the
+  # per-service files.
+  - aggregate-by-service:
+      prompt: |
+        TASK: Aggregate logs by service
+
+        Read every {{events-dir}}/event-*.txt file. For each distinct service, create
+        {{output-dir}}/service-<service>.txt (for example service-api.txt) listing
+        that service's events, one line per event with its level and message.
+
+        Then create {{output-dir}}/aggregation-summary.txt with:
+        "Service aggregation: Processed logs from <number of event files> total events
+        across <number of services> services"
+
+  - generate-report:
+      prompt: |
+        Create comprehensive log analysis report at {{test-dir}}/LOG-ANALYSIS-REPORT.txt:
+
+        "=== APPLICATION LOG ANALYSIS ===
+
+        Test: Real-world JSONL log processing
+        Timestamp: {{datetime}}
+        Log file: {{logs-file}}
+
+        ANALYSIS RESULTS:
+
+        1. Error Logs (level = ERROR):
+           Total errors: $(ls -1 {{errors-dir}}/error-*.txt 2>/dev/null | wc -l)
+           Expected: 3 errors
+           Files: $(ls {{errors-dir}}/error-*.txt 2>/dev/null | xargs -n1 basename)
+
+        2. Warning Logs (level = WARN):
+           Total warnings: $(ls -1 {{warnings-dir}}/warning-*.txt 2>/dev/null | wc -l)
+           Expected: 2 warnings
+           Files: $(ls {{warnings-dir}}/warning-*.txt 2>/dev/null | xargs -n1 basename)
+
+        3. Service Aggregation (parallel workers):
+           Events recorded in parallel: $(ls -1 {{events-dir}}/event-*.txt 2>/dev/null | wc -l)
+           Expected: 8 events
+           Unique services: $(ls -1 {{output-dir}}/service-*.txt 2>/dev/null | wc -l)
+           Expected: 3 services (api, db, web)
+           Services: $(ls {{output-dir}}/service-*.txt 2>/dev/null | xargs -n1 basename)
+
+        TOTAL LOGS PROCESSED: 8 events
+
+        JSONL FEATURES DEMONSTRATED:
+        ✅ Line-by-line streaming processing
+        ✅ Filtering by log level (ERROR, WARN)
+        ✅ Parallel processing with workers
+        ✅ Empty line handling (skipped silently)
+        ✅ Multiple filters on same source file
+        ✅ Real-world log format compatibility
+
+        USE CASES VALIDATED:
+        ✅ Error log extraction and analysis
+        ✅ Warning log detection
+        ✅ Service-based log aggregation
+        ✅ Parallel log processing
+
+        Log analysis completed successfully!"

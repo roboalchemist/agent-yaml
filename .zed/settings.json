@@ -1,0 +1,23 @@
+// Zed / yaml-language-server config for this repo.
+//
+// Workflow definitions live in tasks/. Json Schema Store maps `**/tasks/*.yaml` to the
+// Ansible "tasks file" schema, so every tasks/*.yaml was being validated as an Ansible
+// playbook and every key came back red. These files are agent-yaml workflow YAML, not
+// Ansible, so turn off automatic schema detection. YAML syntax checking stays enabled.
+//
+// If you'd rather keep schema-store detection outside tasks/, delete the schemaStore block
+// and map the glob to a schema instead, e.g.
+//   "schemas": { "./spec/yaml_workflow.schema.json": ["tasks/*.yaml"] }
+{
+  "lsp": {
+    "yaml-language-server": {
+      "settings": {
+        "yaml": {
+          "schemaStore": {
+            "enable": false
+          }
+        }
+      }
+    }
+  }
+}

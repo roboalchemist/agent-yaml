@@ -1,0 +1,81 @@
+# Example: Environment Variable Interpolation
+#
+# This example demonstrates the {{env.VAR_NAME}} syntax for accessing
+# environment variables in templates and prompts.
+#
+# Precedence (later overrides earlier):
+# 1. System environment (inherited from shell)
+# 2. Workflow-level environment: block
+# 3. Task-level env: block
+#
+# Usage:
+#   # System env vars are automatically available
+#   agent-yaml run examples/38-env-interpolation.yaml --dry-run
+#
+#   # Override with custom env vars
+#   MY_PROJECT=myproject agent-yaml run examples/38-env-interpolation.yaml --dry-run
+
+directory: /tmp
+cli-agent: opencode
+cli-agent-config:
+  timeout: 300
+  skip-confirmations: true
+
+# Workflow-level environment variables
+# These are available in ALL tasks via {{env.VAR_NAME}}
+environment:
+  PROJECT_NAME: "demo-project"
+  LOG_LEVEL: "info"
+  DATA_DIR: "workflow-data"
+
+# Template variables can reference env vars
+template-variables:
+  # Every file this example writes goes under this directory
+  output-dir: "{{directory}}/agent-yaml-test-38"
+  # Use workflow env var in template variable
+  data-output-dir: "{{output-dir}}/{{env.DATA_DIR}}/output"
+  # Use system env var (HOME is typically set)
+  user-config: "{{env.HOME}}/.config/{{env.PROJECT_NAME}}"
+
+task:
+  # Task 1: Demonstrate system env var access
+  - show-system-env:
+      prompt: |
+        Show the following environment information:
+        - User home directory: {{env.HOME}}
+        - Current PATH: {{env.PATH}}
+
+        Create directory {{output-dir}} and a file {{output-dir}}/system_env.txt with this information.
+
+  # Task 2: Demonstrate workflow env var access
+  - show-workflow-env:
+      prompt: |
+        The project is configured with:
+        - Project name: {{env.PROJECT_NAME}}
+        - Log level: {{env.LOG_LEVEL}}
+        - Data directory: {{env.DATA_DIR}}
+
+        Create a file {{output-dir}}/workflow_env.txt with this configuration.
+
+  # Task 3: Demonstrate task-level env override
+  - show-task-env:
+      # Task-level env overrides workflow-level
+      env:
+        LOG_LEVEL: "debug"
+        TASK_SPECIFIC_VAR: "task_only_value"
+      prompt: |
+        This task has overridden environment:
+        - Log level (overridden): {{env.LOG_LEVEL}}
+        - Task-specific var: {{env.TASK_SPECIFIC_VAR}}
+        - Project name (inherited): {{env.PROJECT_NAME}}
+
+        Create a file {{output-dir}}/task_env.txt showing the override.
+
+  # Task 4: Demonstrate env in template variables
+  - use-template-vars:
+      prompt: |
+        Using template variables that reference env:
+        - Output directory: {{data-output-dir}}
+        - User config path: {{user-config}}
+
+        Create the output directory {{data-output-dir}} if it doesn't exist.

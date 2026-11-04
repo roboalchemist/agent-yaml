@@ -1,0 +1,20 @@
+# Example 01: Basic Task Execution
+# Tests: Single task, template variables (datetime)
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 60
+
+task:
+  - hello:
+      prompt: |
+        Create file {{directory}}/agent-yaml-test-01/result.txt with content:
+        "Example 01: Basic task completed at {{datetime}}"
+
+        Then create {{directory}}/agent-yaml-test-01/log.txt with:
+        "Test: Basic task execution
+        Status: SUCCESS
+        Timestamp: {{datetime}}"

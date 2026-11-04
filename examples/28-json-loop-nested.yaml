@@ -1,0 +1,45 @@
+name: JSON Loop - Nested Array Extraction
+description: |
+  Demonstrates extracting nested arrays using dot notation path.
+  The 'path' field navigates to the target array within nested JSON structure.
+
+cli-agent: opencode
+directory: /tmp
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 300
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-28"
+
+task:
+  - setup:
+      prompt: |
+        Create directories {{output-dir}}/data and {{output-dir}}/output.
+
+        Create a JSON file at {{output-dir}}/data/org.json with the following nested structure:
+        {
+          "organization": {
+            "teams": {
+              "engineering": [
+                {"name": "Alice", "title": "Senior Engineer"},
+                {"name": "Bob", "title": "Staff Engineer"}
+              ]
+            }
+          }
+        }
+
+  - process-engineers:
+      loop:
+        type: json
+        source: "{{output-dir}}/data/org.json"
+        path: "organization.teams.engineering"
+      prompt: |
+        Process engineer: {{loop.item.name}}
+
+        Create a file at {{output-dir}}/output/engineer-{{loop.item.name}}.md with:
+        # Engineer Profile
+
+        - Name: {{loop.item.name}}
+        - Title: {{loop.item.title}}
+        - Position in team (0-based index): {{loop.index}} of {{loop.total}} engineers

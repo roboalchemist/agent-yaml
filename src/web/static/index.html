@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>agent-yaml · interface runner</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <div>
+            <h1>agent-yaml</h1>
+            <p>interface runner</p>
+          </div>
+        </div>
+
+        <section class="panel grow">
+          <div class="panel-header">
+            <h2>Workflows <span class="count" id="catalog-count">0</span></h2>
+            <button class="ghost" id="refresh-catalog" type="button">Refresh</button>
+          </div>
+          <input id="catalog-search" type="search" placeholder="Filter workflows…" autocomplete="off" />
+          <div id="catalog-list" class="list catalog-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Loaded</h2>
+            <button class="ghost" id="refresh-workflows" type="button">Refresh</button>
+          </div>
+          <div id="workflow-list" class="list compact"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Runs</h2>
+            <button class="ghost" id="refresh-runs" type="button">Refresh</button>
+          </div>
+          <div id="run-list" class="list compact"></div>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Stage graph</p>
+            <h2 id="workflow-title">No workflow selected</h2>
+            <p class="subtitle" id="workflow-subtitle">Pick a workflow from the catalog to render its stages.</p>
+          </div>
+          <div class="actions">
+            <button id="focus-toggle" type="button" class="ghost">Follow stage: off</button>
+            <button id="fit-button" type="button" class="ghost">Fit</button>
+            <button id="zoom-out" type="button" class="ghost">−</button>
+            <button id="zoom-in" type="button" class="ghost">+</button>
+            <button id="dry-run-button" type="button" disabled>Dry run</button>
+            <button id="run-button" type="button" class="primary" disabled>Run</button>
+          </div>
+        </header>
+
+        <section class="canvas-wrap">
+          <canvas id="gl-canvas" aria-label="Workflow stage graph"></canvas>
+          <div id="gl-labels" class="gl-labels"></div>
+          <div id="dom-graph" class="dom-graph" hidden></div>
+
+          <div id="empty-canvas" class="empty-state">
+            <strong>WebGL stage graph</strong>
+            <p>Select a workflow to draw its stages. Runs light up nodes as callbacks arrive.</p>
+          </div>
+
+          <div id="fallback-notice" class="fallback-notice" hidden>
+            WebGL2 is unavailable in this browser — showing the DOM fallback renderer.
+          </div>
+
+          <div class="legend">
+            <span><i class="dot status-idle"></i>idle</span>
+            <span><i class="dot status-running"></i>running</span>
+            <span><i class="dot status-success"></i>success</span>
+            <span><i class="dot status-failed"></i>failed</span>
+            <span><i class="dot status-skipped"></i>skipped</span>
+          </div>
+          <div id="hover-hint" class="hover-hint"></div>
+        </section>
+
+        <section class="trace">
+          <div class="trace-header">
+            <div class="trace-title">
+              <p class="eyebrow">Execution trace</p>
+              <h3 id="run-subtitle">No active run</h3>
+            </div>
+            <div class="trace-controls">
+              <div class="chips">
+                <button type="button" data-filter="all" class="chip active">all</button>
+                <button type="button" data-filter="workflow" class="chip">workflow</button>
+                <button type="button" data-filter="task" class="chip">tasks</button>
+                <button type="button" data-filter="loop" class="chip">loops</button>
+                <button type="button" data-filter="validator" class="chip">validators</button>
+              </div>
+              <span class="count" id="trace-count">0/0</span>
+              <button id="follow-toggle" type="button" class="ghost active">Follow: on</button>
+              <button id="trace-clear" type="button" class="ghost">Clear</button>
+            </div>
+          </div>
+          <div id="trace-body-parent" class="trace-body-parent">
+            <div id="trace-empty" class="trace-empty">
+              Callbacks appear here as the run executes: workflow → task → loop items → validators.
+            </div>
+            <div id="trace-body" class="trace-body"></div>
+          </div>
+        </section>
+      </main>
+
+      <aside class="inspector">
+        <section class="panel">
+          <h2>Stage inspector</h2>
+          <div id="node-inspector" class="inspector-body muted">
+            Select a stage on the canvas (or a trace row) to inspect it.
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>How it works</h2>
+          <ul class="hint-list">
+            <li><strong>WebGL2</strong> draws instanced SDF nodes and tessellated bezier edges.</li>
+            <li><strong>Drag</strong> to pan, <strong>wheel</strong> to zoom, <strong>click</strong> a stage to inspect.</li>
+            <li><strong>Callbacks</strong> stream over SSE and color stages + rows in place.</li>
+            <li>Click a trace row to focus its stage on the graph.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,99 @@
+name: JSON Loop - Checkpoint and Resume Test
+description: |
+  Tests checkpoint/resume functionality for JSON loops.
+  Demonstrates how to resume long-running JSON processing after interruption.
+
+directory: /tmp
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 300
+
+template-variables:
+  test-dir: "{{directory}}/agent-yaml-checkpoint-test"
+  checkpoint-file: "{{test-dir}}/.json-loop-checkpoint.json"
+  data-file: "{{test-dir}}/items.json"
+  output-dir: "{{test-dir}}/output"
+
+task:
+  - setup:
+      prompt: |
+        Create directory: {{test-dir}}
+        Create directory: {{output-dir}}
+
+        Create {{data-file}} with a larger dataset:
+        [
+          {"id": 1, "task": "Deploy API", "priority": "high"},
+          {"id": 2, "task": "Fix bug #123", "priority": "critical"},
+          {"id": 3, "task": "Update docs", "priority": "medium"},
+          {"id": 4, "task": "Code review", "priority": "high"},
+          {"id": 5, "task": "Write tests", "priority": "medium"},
+          {"id": 6, "task": "Security audit", "priority": "critical"},
+          {"id": 7, "task": "Performance tuning", "priority": "low"},
+          {"id": 8, "task": "Refactor module", "priority": "medium"},
+          {"id": 9, "task": "Add logging", "priority": "low"},
+          {"id": 10, "task": "Database migration", "priority": "high"}
+        ]
+
+        Also create {{test-dir}}/README.txt explaining:
+        "This test demonstrates checkpoint/resume functionality.
+
+        To test resume:
+        1. Start this workflow and interrupt it (Ctrl+C) partway through the loop
+        2. Check checkpoint file: {{checkpoint-file}} (current_index = items already done)
+        3. Run the workflow again: the loop has resume: true, so it continues after
+           the last checkpointed item instead of starting over
+        4. Delete the checkpoint file to process every item again
+
+        The checkpoint file saves progress after each iteration,
+        allowing you to resume long-running JSON processing."
+
+  - process-with-checkpoint:
+      prompt: |
+        Process task: {{loop.item.task}}
+
+        Create {{output-dir}}/task-{{loop.item.id}}.txt with:
+        ID: {{loop.item.id}}
+        Task: {{loop.item.task}}
+        Priority: {{loop.item.priority}}
+        Item index (0-based): {{loop.index}} of {{loop.total}} items
+        Remaining: {{loop.remaining}}
+
+        Checkpoint: Saved after this item
+      loop:
+        type: json
+        source: "{{data-file}}"
+        # Progress is saved to checkpoint-file after every item. With resume: true a
+        # re-run continues after the last saved item; without a checkpoint (fresh run)
+        # it starts at item 1. After a complete run the checkpoint points past the last
+        # item, so delete it to process everything again.
+        checkpoint-file: "{{checkpoint-file}}"
+        resume: true
+      on-error: continue
+
+  - verify:
+      prompt: |
+        Create verification report at {{test-dir}}/CHECKPOINT-TEST-RESULTS.txt:
+
+        "=== CHECKPOINT TEST RESULTS ===
+
+        Checkpoint file: {{checkpoint-file}}
+        Data file: {{data-file}}
+        Output directory: {{output-dir}}
+
+        Expected outputs: 10 files (task-1.txt through task-10.txt)
+        Actual outputs: $(ls -1 {{output-dir}}/task-*.txt | wc -l)
+
+        Checkpoint file exists: $([ -f {{checkpoint-file}} ] && echo 'YES' || echo 'NO')
+
+        Checkpoint content:
+        $(cat {{checkpoint-file}} 2>/dev/null || echo 'No checkpoint file')
+
+        To test resume functionality:
+        1. Start the workflow and interrupt it (Ctrl+C) partway through the loop
+        2. Run it again: agent-yaml run examples/32-json-checkpoint-test.yaml
+           (resume: true makes the loop reload {{checkpoint-file}} and continue
+           after the last completed item)
+        3. Delete {{checkpoint-file}} to start again from item 1
+
+        ✅ Checkpoint functionality validated successfully!"

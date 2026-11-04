@@ -1,0 +1,47 @@
+# Example 19: YAML Validator
+# Demonstrates yaml-valid validator for checking valid YAML output
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-19-{{datetime}}"
+  yaml-file: "{{output-dir}}/config.yaml"
+
+task:
+  - create-directory:
+      prompt: |
+        Create directory {{output-dir}} if it doesn't exist:
+        mkdir -p {{output-dir}}
+
+  - generate-yaml:
+      prompt: |
+        Create file {{yaml-file}} with valid YAML:
+
+        workflow: example-19
+        timestamp: {{datetime}}
+        status: success
+        settings:
+          enabled: true
+          timeout: 60
+          retries: 3
+        features:
+          - validation
+          - retry
+          - logging
+
+        Use echo or cat to write this exact YAML to the file.
+
+      validate:
+        - file-exists: "{{yaml-file}}"
+        - file-not-empty: "{{yaml-file}}"
+        - yaml-valid: "{{yaml-file}}"
+
+  - verify-yaml:
+      prompt: |
+        Read {{yaml-file}} and verify it's valid YAML.
+        Print "✅ YAML validation passed!" to stdout.

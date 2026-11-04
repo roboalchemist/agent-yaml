@@ -1,0 +1,50 @@
+name: JSONL Loop - JSON Lines Format
+description: |
+  Demonstrates JSON Lines format processing where each line is a separate JSON object.
+  This format is streaming-friendly and commonly used for log files and data exports.
+
+cli-agent: opencode
+directory: /tmp
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 300
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-30-jsonl"
+
+task:
+  - setup:
+      prompt: |
+        Create directories {{output-dir}}/data and {{output-dir}}/output.
+
+        Create a JSONL file at {{output-dir}}/data/events.jsonl with the following content
+        (one JSON object per line):
+
+        {"timestamp": "2026-02-02T10:00:00", "event": "user_login", "user": "alice"}
+        {"timestamp": "2026-02-02T10:05:00", "event": "page_view", "user": "alice"}
+        {"timestamp": "2026-02-02T10:10:00", "event": "user_login", "user": "bob"}
+        {"timestamp": "2026-02-02T10:15:00", "event": "user_logout", "user": "alice"}
+
+  - process-events:
+      loop:
+        type: jsonl
+        source: "{{output-dir}}/data/events.jsonl"
+      prompt: |
+        Process event: {{loop.item.event}} by {{loop.item.user}}
+
+        Create a file at {{output-dir}}/output/event-{{loop.index}}.log with:
+        [{{loop.item.timestamp}}] {{loop.item.event}} - User: {{loop.item.user}}
+        Event index (0-based): {{loop.index}} of {{loop.total}} events
+
+  - filter-login-events:
+      loop:
+        type: jsonl
+        source: "{{output-dir}}/data/events.jsonl"
+        filter:
+          key: "event"
+          value: "user_login"
+      prompt: |
+        Process login event for {{loop.item.user}}
+
+        Create a file at {{output-dir}}/output/login-{{loop.item.user}}.txt with:
+        User {{loop.item.user}} logged in at {{loop.item.timestamp}}

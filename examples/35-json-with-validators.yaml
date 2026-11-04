@@ -1,0 +1,124 @@
+name: JSON Loop - With Post-Task Validators
+description: |
+  Tests JSON loops combined with post-task validators.
+  Demonstrates validation of loop outputs and retry on validation failure.
+
+directory: /tmp
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 300
+
+template-variables:
+  test-dir: "{{directory}}/agent-yaml-json-validators-test"
+  data-file: "{{test-dir}}/configs.json"
+  output-dir: "{{test-dir}}/validated"
+
+task:
+  - setup:
+      prompt: |
+        Create directory: {{test-dir}}
+        Create directory: {{output-dir}}
+
+        Create {{data-file}} with configuration items:
+        [
+          {"id": 1, "service": "api", "port": 8080, "format": "json"},
+          {"id": 2, "service": "web", "port": 3000, "format": "yaml"},
+          {"id": 3, "service": "db", "port": 5432, "format": "json"}
+        ]
+
+  - process-json-configs:
+      prompt: |
+        Process configuration for: {{loop.item.service}}
+
+        CRITICAL: Create a valid JSON file at {{output-dir}}/config-{{loop.item.id}}.json with:
+        {
+          "service": "{{loop.item.service}}",
+          "port": {{loop.item.port}},
+          "enabled": true,
+          "metadata": {
+            "format": "{{loop.item.format}}",
+            "processed_at": "{{datetime}}"
+          }
+        }
+
+        IMPORTANT: Ensure the JSON is syntactically valid!
+      loop:
+        type: json
+        source: "{{data-file}}"
+        filter:
+          key: "format"
+          value: "json"
+      validate:
+        - file-exists: "{{output-dir}}/config-{{loop.item.id}}.json"
+        - file-not-empty: "{{output-dir}}/config-{{loop.item.id}}.json"
+        - json-valid: "{{output-dir}}/config-{{loop.item.id}}.json"
+      retry:
+        max-attempts: 3
+        on-validation-failure: retry
+
+  - process-yaml-configs:
+      prompt: |
+        Process YAML configuration for: {{loop.item.service}}
+
+        Create a valid YAML file at {{output-dir}}/config-{{loop.item.id}}.yaml with:
+        service: {{loop.item.service}}
+        port: {{loop.item.port}}
+        enabled: true
+        metadata:
+          format: {{loop.item.format}}
+          processed_at: "{{datetime}}"
+
+        IMPORTANT: Ensure the YAML is syntactically valid!
+      loop:
+        type: json
+        source: "{{data-file}}"
+        filter:
+          key: "format"
+          value: "yaml"
+      validate:
+        - file-exists: "{{output-dir}}/config-{{loop.item.id}}.yaml"
+        - yaml-valid: "{{output-dir}}/config-{{loop.item.id}}.yaml"
+        - contains:
+            file: "{{output-dir}}/config-{{loop.item.id}}.yaml"
+            text: "service:"
+      retry:
+        max-attempts: 3
+        on-validation-failure: retry
+
+  - verify-validators:
+      prompt: |
+        Create validation report at {{test-dir}}/VALIDATOR-TEST-RESULTS.txt:
+
+        "=== JSON LOOP + VALIDATORS TEST RESULTS ===
+
+        Timestamp: {{datetime}}
+
+        TEST SCENARIOS:
+        1. JSON Configs with Validators
+           - Filter: format = json
+           - Validators: file-exists, file-not-empty, json-valid
+           - Retry: max-attempts: 3, on-validation-failure: retry
+           - Files created: $(ls -1 {{output-dir}}/config-*.json 2>/dev/null | wc -l)
+           - Expected: 2 JSON files (services: api, db)
+
+        2. YAML Configs with Validators
+           - Filter: format = yaml
+           - Validators: file-exists, yaml-valid, contains
+           - Retry: max-attempts: 3, on-validation-failure: retry
+           - Files created: $(ls -1 {{output-dir}}/config-*.yaml 2>/dev/null | wc -l)
+           - Expected: 1 YAML file (service: web)
+
+        VALIDATION CHECKS:
+        JSON file 1: $(python3 -m json.tool {{output-dir}}/config-1.json > /dev/null 2>&1 && echo '✅ Valid' || echo '❌ Invalid')
+        JSON file 3: $(python3 -m json.tool {{output-dir}}/config-3.json > /dev/null 2>&1 && echo '✅ Valid' || echo '❌ Invalid')
+        YAML file 2: $(python3 -c 'import yaml; yaml.safe_load(open(\"{{output-dir}}/config-2.yaml\"))' > /dev/null 2>&1 && echo '✅ Valid' || echo '❌ Invalid')
+
+        FEATURES VALIDATED:
+        ✅ JSON loop with filtering
+        ✅ Post-task validators (file-exists, json-valid, yaml-valid, contains)
+        ✅ Validation retry mechanism
+        ✅ Multiple validator types on single task
+        ✅ Filter by format field
+
+        All validators executed successfully on loop outputs!"

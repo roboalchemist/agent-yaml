@@ -1,0 +1,45 @@
+# Example 18: JSON Validator
+# Demonstrates json-valid validator for checking valid JSON output
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-18-{{datetime}}"
+  json-file: "{{output-dir}}/data.json"
+
+task:
+  - create-directory:
+      prompt: |
+        Create directory {{output-dir}} if it doesn't exist:
+        mkdir -p {{output-dir}}
+
+  - generate-json:
+      prompt: |
+        Create file {{json-file}} with valid JSON:
+
+        {
+          "workflow": "example-18",
+          "timestamp": "{{datetime}}",
+          "status": "success",
+          "data": {
+            "items": ["a", "b", "c"],
+            "count": 3
+          }
+        }
+
+        Use echo or cat to write this exact JSON to the file.
+
+      validate:
+        - file-exists: "{{json-file}}"
+        - file-not-empty: "{{json-file}}"
+        - json-valid: "{{json-file}}"
+
+  - verify-json:
+      prompt: |
+        Read {{json-file}} and verify it's valid JSON.
+        Print "✅ JSON validation passed!" to stdout.

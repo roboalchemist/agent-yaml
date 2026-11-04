@@ -1,0 +1,49 @@
+# Example: Environment Variables
+#
+# Demonstrates workflow-level and task-level environment variables.
+#
+# Precedence (later overrides earlier):
+# 1. System environment (inherited from shell)
+# 2. Workflow-level `environment:` block
+# 3. Task-level `env:` block
+#
+# Template variables (like {{gitroot}}) are interpolated in env values.
+
+directory: /tmp
+
+# Workflow-level environment (inherited by all tasks)
+environment:
+  LOG_LEVEL: "info"
+  WORKSPACE: "{{gitroot}}"
+  PROJECT_NAME: "agent-yaml"
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 300
+
+task:
+  # Task 1: Uses workflow-level environment
+  - check-env:
+      prompt: |
+        Print the environment variables LOG_LEVEL, WORKSPACE, and PROJECT_NAME.
+        Show their values.
+
+  # Task 2: Task-level override
+  - debug-build:
+      env:
+        LOG_LEVEL: "debug"           # Override workflow-level LOG_LEVEL
+        BUILD_ID: "{{datetime}}"     # New task-only variable with template
+      prompt: |
+        Print LOG_LEVEL (should be "debug", overriding workflow's "info").
+        Print BUILD_ID (should show the workflow start timestamp).
+        Print WORKSPACE (should be inherited from workflow level).
+
+  # Task 3: Completely custom task env
+  - custom-task:
+      env:
+        CUSTOM_VAR: "custom_value"
+        NUMERIC_VAR: "42"
+      prompt: |
+        Print CUSTOM_VAR and NUMERIC_VAR.
+        Also verify that system PATH is still available.

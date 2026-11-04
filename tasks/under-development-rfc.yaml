@@ -1,0 +1,113 @@
+# Gather > rfc_research.md >
+# RFC Syle guide:
+
+# Consider:
+# - If this is a feature-addition RFC, or a re-architecturing RFC (or both!)
+
+# # DO:
+# - Keep it broken down by change category, as you would when breaking the project down into individual PRs, so each one can be interpreted individually
+# - default to a paragrah style of documentation instead of everything being bullet-point lists
+# - Have example json call/response code blocks if there are api changes made, to specify what the api calls should look like
+# - include sql language on database changes,
+# - include technical details on a per-code-change basis, not on an overall basis
+
+# # DONT
+# - write full database migration scripts
+# - include python code blocks
+# - mention specific files/lines
+# - include more than one example
+# - Mention specific/potential product use cases unless absolutely required to make sense of the change
+
+# Questions to ask:
+# Which endpoints needs to be updated for this to happen?
+# Which data models need to be updated for this to work?
+# Look at public-api for any changes that might be needed
+# Consider how the database model migration will work. What will happen with existing endpoints? What happens when applicatiosn that use the existing endpoint structure still provide the old style of information. Do we have resasonable defaults? What about items that consume the new database elements, do we have reasonable defaults for when there's a None/null returned?
+# How do the existing frontend elements get their information?  Are the existing endpoints sufficient for the frontend requirements proposed?
+
+# # RFC Template
+
+# ## Requirements
+
+# ## Milestones
+# ### Pre-Launch
+# ### Launch
+# ### Post-Launch
+
+# ## Testing Plan
+
+rfc-first-pass:
+  - setup:
+      desc: "create the needed folder"
+  - gather:
+      desc: "gather PRD, notion, in-code docs"
+  - research:
+      desc: "research questions"
+  - copy-template:
+      desc: "copy over the rfc template docs"
+  - write-background-section:
+      desc: "write out the non-technical background elemets from the PRD document"
+  - write-requirements-section:
+      desc: "write out the project requirements section from the PRD document"
+  - break-out:
+      desc: "break out into the technical changes needed by change-category into frontned/firmware/backend"
+  - populate-each-section:
+      desc: "for each technical change needed, populate out the section"
+  - add-section-appendix:
+      desc: "Add appendix"
+  - add-section-open-questions:
+      desc: "open questions we haven't answered yet"
+  - add-section-considerations:
+      desc: "we need human considerations to investigate"
+  - add-section-milestones:
+      desc: "populate the milestones for the project"
+  - populate-testing-plan:
+      desc: "populate the testing plan for each section"
+  - break-project-into-tickets:
+      desc: "pre-stage the linear tickets"
+
+# There's a loop we need to run when doing rfcs:
+
+rfc-itterate:
+  - setup:
+      desc: "Populate gaps between PRD and RFC"
+      prompt: "review the existing PRD and RFC and find gaps, and populate the `Gaps with PRD` section of the RFC."
+  - consider:
+      desc: "review"
+  - research:
+      desc: "research the existing option questions, and attempt to answer them below each question"
+      prompt: "In the Open Questions section of the lockdowns2_rfc.md"
+
+sync-notion:
+  - setup:
+      - desc: "there should be an existing sturcture in notion, enforce this"
+  - setup:
+      - desc: "populate missing docs that are present in the code but missing from notion"
+  - setup:
+      - desc: "check that the notion docs match the content of the docs in the "
+
+
+Yeah this will make it much faster once we have the docs auto-generated:
+Ask for gaps between rfc and prd > generate list > populate list > answer list with existing documents can all be auto-
+
+
+
+
+Add this to the open questions as to whether this timeout is sufficient for us
+
+
+For each gap element, make suggestions as to what additions should be made to the RFC. Have it mention specifically what should be added to which sections. Do this with parallel sub-agents. Update the resepective element in `Gaps with PRD` to include the suggestion. Do the writes  at the end after all the sub-agents are done to avoid write conflicts.
+
+
+Look at lcodkownsv2_rfc.md open questions section. Find the first task list item that is unresolve (has an empty, open [ ], not [-] or [x] ). Mark it as in-progress (with a hyphen in the middle [-]). Task a research sub-agent to do research on this question. You have full access to the backend (example-repo), Frontend (example-web), and the iOS pass app (example-ios). Once the research has been completed, populate an answer to the question below it, and then mark it as completed ([x]). Use the lockdowns.md guide as the starting basis of the research.
+
+constantly need to update the todo sections
+
+
+
+overview > requirements > design > milestones > project planning
+
+
+For each design item, reference the originating requirement in the requirements section(s)
+
+For each milestone task, ensure there is a reference to the originating design element(s)

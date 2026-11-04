@@ -1,0 +1,76 @@
+# Example 17: Post-Task Validators with Retry
+# Demonstrates retry mechanism on validation failure
+#
+# This workflow shows how tasks can automatically retry when validation fails
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-17-{{datetime}}"
+  output-file: "{{output-dir}}/report.md"
+  attempt-marker: "{{output-dir}}/attempt-count.txt"
+
+task:
+  - setup:
+      prompt: |
+        Create directory and initialize attempt counter:
+        mkdir -p {{output-dir}}
+        echo "0" > {{attempt-marker}}
+
+  - flaky-task-with-retry:
+      prompt: |
+        This task simulates a flaky operation that might fail validation initially.
+
+        Read current attempt from {{attempt-marker}}:
+        ATTEMPT=$(cat {{attempt-marker}})
+        NEXT=$((ATTEMPT + 1))
+        echo "$NEXT" > {{attempt-marker}}
+
+        echo "Attempt #$NEXT" >&2
+
+        # Simulate flaky behavior: fail on first attempt, succeed on second
+        if [ "$NEXT" -eq "1" ]; then
+          echo "First attempt - creating incomplete file (will fail validation)" >&2
+          cat > {{output-file}} << 'EOF'
+        # Incomplete Report
+        Missing the Summary section.
+        EOF
+        else
+          echo "Retry attempt - creating complete file (will pass validation)" >&2
+          cat > {{output-file}} << 'EOF'
+        # Complete Report
+
+        ## Summary
+
+        Report created successfully after retry.
+        EOF
+        fi
+
+      validate:
+        - file-exists: "{{output-file}}"
+        - contains:
+            file: "{{output-file}}"
+            text: "## Summary"
+
+      retry:
+        max-attempts: 3
+        on-validation-failure: retry
+
+  - verify-retry-worked:
+      prompt: |
+        Verify the retry mechanism worked:
+
+        1. Check final attempt count:
+           ATTEMPTS=$(cat {{attempt-marker}})
+           echo "Total attempts: $ATTEMPTS"
+
+        2. Verify final file has Summary section:
+           grep "## Summary" {{output-file}} && echo "✅ Found Summary section"
+
+        3. Print success message:
+           echo "✅ Retry mechanism worked - task succeeded after $ATTEMPTS attempts"

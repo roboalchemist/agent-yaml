@@ -1,0 +1,144 @@
+# Example 12: Loop Filtering & Sorting
+# Tests: CSV filter, glob exclude, glob sort options
+# Demonstrates advanced loop filtering capabilities
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 180
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-12"
+
+task:
+  # Phase 1: Setup test data
+  - setup:
+      create-dirs:
+        prompt: |
+          Create directory structure:
+          - {{output-dir}}
+          - {{output-dir}}/data
+          - {{output-dir}}/logs
+
+      create-csv:
+        prompt: |
+          Create {{output-dir}}/data/users.csv with:
+          "name,role,status
+          alice,admin,active
+          bob,user,active
+          charlie,user,inactive
+          diana,admin,active
+          eve,user,active"
+
+      create-files:
+        prompt: |
+          Create test files in {{output-dir}}/data:
+          - important-1.txt with "Important file 1"
+          - important-2.txt with "Important file 2"
+          - temp-1.txt with "Temporary file 1"
+          - temp-2.txt with "Temporary file 2"
+          - archive.txt with "Archive file"
+          - notes.txt with "Notes file"
+
+  # Phase 2: CSV loop with filter (only active users)
+  - csv-filter-test:
+      loop:
+        type: csv
+        source: "{{output-dir}}/data/users.csv"
+        filter:
+          column: status
+          value: active
+      prompt: |
+        Process active user: {{loop.item.name}}
+
+        Create {{output-dir}}/logs/active-user-{{loop.item.name}}.log with:
+        "Active User {{loop.index}}/{{loop.total}}
+        Name: {{loop.item.name}}
+        Role: {{loop.item.role}}
+        Status: {{loop.item.status}}
+
+        Note: Only 'active' users processed due to filter"
+
+  # Phase 3: CSV loop with role filter (only admins)
+  - csv-admin-filter:
+      loop:
+        type: csv
+        source: "{{output-dir}}/data/users.csv"
+        filter:
+          column: role
+          value: admin
+      prompt: |
+        Process admin: {{loop.item.name}}
+
+        Create {{output-dir}}/logs/admin-{{loop.item.name}}.log with:
+        "Admin User {{loop.index}}/{{loop.total}}
+        Name: {{loop.item.name}}
+        Role: {{loop.item.role}}
+        Status: {{loop.item.status}}
+
+        Note: Only 'admin' role processed due to filter"
+
+  # Phase 4: Glob loop with exclude (skip temp files)
+  - glob-exclude-test:
+      loop:
+        type: glob
+        pattern: "{{output-dir}}/data/*.txt"
+        exclude:
+          - "**/temp-*.txt"
+          - "**/archive.txt"
+      prompt: |
+        Process file: {{loop.item.filename}}
+
+        Create {{output-dir}}/logs/processed-{{loop.item.filename}}.log with:
+        "File {{loop.index}}/{{loop.total}}
+        Path: {{loop.item.path}}
+        Filename: {{loop.item.filename}}
+        Extension: {{loop.item.extension}}
+
+        Note: temp-*.txt and archive.txt excluded"
+
+  # Phase 5: Glob loop with sort by modified time
+  - glob-sort-test:
+      loop:
+        type: glob
+        pattern: "{{output-dir}}/data/important-*.txt"
+        sort: modified
+      prompt: |
+        Process (sorted): {{loop.item.filename}}
+
+        Create {{output-dir}}/logs/sorted-{{loop.item.filename}}.log with:
+        "Sorted File {{loop.index}}/{{loop.total}}
+        Path: {{loop.item.path}}
+        Filename: {{loop.item.filename}}
+
+        Note: Files sorted by modification time"
+
+  # Phase 6: Summary
+  - summary:
+      prompt: |
+        Create {{output-dir}}/FILTERING-SUMMARY.txt with:
+        "=== LOOP FILTERING & SORTING TEST SUMMARY ===
+
+        Test Date: {{datetime}}
+        User: {{user}}
+
+        FEATURES TESTED:
+        ✅ CSV loop with filter (status: active)
+        ✅ CSV loop with filter (role: admin)
+        ✅ Glob loop with exclude patterns
+        ✅ Glob loop with sort: modified
+
+        TEST RESULTS:
+        - CSV filter (status=active): Processed alice, bob, diana, eve (4/5)
+        - CSV filter (role=admin): Processed alice, diana (2/5)
+        - Glob exclude: Skipped temp-*.txt and archive.txt
+        - Glob sort: Files ordered by modification time
+
+        OTHER AVAILABLE OPTIONS (not tested):
+        - CSV filter: Multiple columns
+        - Glob exclude: Multiple patterns
+        - Glob sort: name, size, created
+
+        OUTPUT LOCATION: {{output-dir}}/"

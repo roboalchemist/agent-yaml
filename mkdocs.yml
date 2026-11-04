@@ -1,0 +1,68 @@
+site_name: agent-yaml
+site_description: Declarative YAML workflows for AI coding-agent CLIs
+repo_url: https://github.com/roboalchemist/agent-yaml
+repo_name: roboalchemist/agent-yaml
+edit_uri: edit/main/docs/
+docs_dir: docs
+use_directory_urls: true
+
+theme:
+  name: material
+  navigation_depth: 2
+  features:
+  - navigation.footer
+  - content.code.copy
+  - content.action.edit
+  palette:
+  - media: "(prefers-color-scheme)"  # automatic mode
+    toggle:
+      icon: material/brightness-auto
+      name: Switch to light mode
+  - media: "(prefers-color-scheme: light)"  # light mode
+    scheme: default
+    toggle:
+      icon: material/brightness-7
+      name: Switch to dark mode
+  - media: "(prefers-color-scheme: dark)"  # dark mode
+    scheme: slate
+    toggle:
+      icon: material/brightness-4
+      name: Switch to system preference
+
+nav:
+  - Home: README.md
+  - Authoring: AUTHORING.md
+  - Templating: TEMPLATING.md
+  - Loops: LOOPS.md
+  - Parallel loops: PARALLEL_LOOPS.md
+  - Validators: VALIDATORS.md
+  - Interface runner: INTERFACE_RUNNER.md
+  - Adapters: ADAPTER_TROUBLESHOOTING.md
+  - Worked example: docstring-workflow-validators.md
+
+markdown_extensions:
+- toc:
+    permalink: true
+    toc_depth: 3
+- pymdownx.highlight:
+    anchor_linenums: true
+    line_spans: __span
+    pygments_lang_class: true
+    auto_title: true
+- pymdownx.inlinehilite
+- pymdownx.snippets
+- pymdownx.superfences
+- admonition
+- pymdownx.details
+- md_in_html
+
+plugins:
+- search
+
+# The docs intentionally link to repo files that live outside docs_dir
+# (spec/, tests/, examples/, AGENTS.md). Those links resolve on GitHub; in the
+# MkDocs site they have no target, so link resolution is not treated as an error.
+validation:
+  links:
+    not_found: ignore
+    unrecognized_links: ignore

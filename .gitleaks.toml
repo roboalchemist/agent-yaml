@@ -1,0 +1,15 @@
+# Gitleaks configuration for agent-yaml.
+#
+# The unit tests deliberately pass placeholder API keys through the adapters to
+# prove flag construction. They are fake values, not credentials, so allowlist
+# the test suite rather than rewriting every fixture.
+title = "agent-yaml"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake keys in test fixtures"
+paths = [
+  '''tests/''',
+]

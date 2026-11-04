@@ -1,0 +1,184 @@
+# Example 07: Comprehensive Feature Test
+# Tests: All features - parallel, sequential, loops, includes, variables, error handling
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 300
+
+on-error: continue
+
+template-variables:
+  test-suite: "comprehensive-v07"
+  output-dir: "{{directory}}/agent-yaml-test-07"
+  data-dir: "{{output-dir}}/data"
+  reports-dir: "{{output-dir}}/reports"
+  logs-dir: "{{output-dir}}/logs"
+
+includes:
+  context: "You are running a comprehensive agent-yaml feature test."
+  reminder: "All output must go to {{output-dir}}"
+
+task:
+  # Phase 1: Setup (Parallel: sibling object keys run concurrently)
+  # Phases are list items, so each phase finishes before the next one starts.
+  - setup:
+      create-dirs:
+        prompt: |
+          Create directory structure:
+          - {{output-dir}}
+          - {{data-dir}}
+          - {{reports-dir}}
+          - {{logs-dir}}
+        include:
+          - context
+
+      create-todo:
+        prompt: |
+          Create {{data-dir}}/tasks.md with:
+          "# Integration Tasks
+
+          - [ ] Component validation
+          - [ ] System integration
+          - [ ] End-to-end testing"
+        include:
+          - reminder
+
+      create-csv:
+        prompt: |
+          Create {{data-dir}}/components.csv with:
+          "component,type,status
+          parser,core,stable
+          executor,core,stable
+          loops,feature,stable"
+        include:
+          - reminder
+
+      create-files:
+        prompt: |
+          Create test files in {{data-dir}}:
+          - alpha.log with "Alpha log entry"
+          - beta.log with "Beta log entry"
+          - gamma.log with "Gamma log entry"
+        include:
+          - reminder
+
+  # Phase 2: Parallel Analysis
+  - parallel-analysis:
+      quick-scan:
+        prompt: |
+          Create {{reports-dir}}/quick-scan.txt with:
+          "Quick Scan Report
+          Test: {{test-suite}}
+          User: {{user}}
+          Timestamp: {{datetime}}"
+        include:
+          - context
+
+      detailed-analysis:
+        prompt: |
+          Create {{reports-dir}}/detailed-analysis.txt with:
+          "Detailed Analysis Report
+          Directory: {{directory}}
+          Output: {{output-dir}}
+          Timestamp: {{datetime}}"
+        include:
+          - context
+
+      metrics:
+        prompt: |
+          Create {{reports-dir}}/metrics.txt with:
+          "Performance Metrics
+          Parallel execution: Active
+          Test suite: {{test-suite}}
+          Timestamp: {{datetime}}"
+        include:
+          - context
+
+  # Phase 3: Loop Processing
+  - loop-processing:
+      todos:
+        loop:
+          type: todo-list
+          source: "{{data-dir}}/tasks.md"
+          mark-in-progress: true
+          mark-complete: true
+        prompt: |
+          Process: {{loop.item.text}}
+          Create {{logs-dir}}/todo-{{loop.item.number}}.log with:
+          "Task: {{loop.item.text}}
+          Progress: {{loop.index}}/{{loop.total}}
+          Timestamp: {{datetime}}"
+        include:
+          - reminder
+
+      components:
+        loop:
+          type: csv
+          source: "{{data-dir}}/components.csv"
+          skip-header: true
+          columns: [component, type, status]
+        prompt: |
+          Analyze: {{loop.item.component}}
+          Create {{logs-dir}}/component-{{loop.item.component}}.log with:
+          "Component: {{loop.item.component}}
+          Type: {{loop.item.type}}
+          Status: {{loop.item.status}}
+          Timestamp: {{datetime}}"
+        include:
+          - reminder
+
+      logfiles:
+        loop:
+          type: glob
+          pattern: "{{data-dir}}/*.log"
+        prompt: |
+          Verify: {{loop.item.filename}}
+          Create {{logs-dir}}/verify-{{loop.item.filename}}.txt with:
+          "Verified: {{loop.item.path}}
+          Index: {{loop.index}}/{{loop.total}}
+          Timestamp: {{datetime}}"
+        include:
+          - reminder
+
+  # Phase 4: Final Summary
+  - finalize:
+      prompt: |
+        Create comprehensive summary at {{output-dir}}/COMPREHENSIVE-SUMMARY.txt:
+
+        "=== COMPREHENSIVE TEST SUMMARY ===
+
+        Test Suite: {{test-suite}}
+        User: {{user}}
+        Timestamp: {{datetime}}
+        Working Directory: {{directory}}
+
+        PHASES COMPLETED:
+        ✅ Phase 1: Setup (4 tasks in parallel)
+        ✅ Phase 2: Parallel Analysis (3 tasks concurrent)
+        ✅ Phase 3: Loop Processing (3 loops)
+        ✅ Phase 4: Finalization
+
+        FEATURES TESTED:
+        ✅ Sequential execution
+        ✅ Parallel execution (ThreadPoolExecutor)
+        ✅ TodoList loop (mark-in-progress, mark-complete)
+        ✅ CSV loop (skip-header)
+        ✅ Glob loop (pattern matching)
+        ✅ Template variables ({{test-suite}}, {{user}}, {{datetime}}, etc.)
+        ✅ Include concatenation (context, reminder)
+        ✅ Error handling (on-error: continue)
+
+        OUTPUT STRUCTURE:
+        {{output-dir}}/
+        ├── data/           (source files)
+        ├── reports/        (parallel analysis output)
+        ├── logs/           (loop processing logs)
+        └── COMPREHENSIVE-SUMMARY.txt
+
+        ALL FEATURES VALIDATED SUCCESSFULLY! ✅"
+      include:
+        - context
+        - reminder

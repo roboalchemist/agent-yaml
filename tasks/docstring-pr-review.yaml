@@ -1,0 +1,1070 @@
+---
+# Docstring PR Review & Fix Workflow
+# Discovers open docstring PRs (or reviews a single PR), reviews via council, then implements fixes
+#
+# Usage:
+#   All PRs:     python -m src.cli run tasks/docstring-pr-review.yaml
+#   Single PR:   python -m src.cli run tasks/docstring-pr-review.yaml --var pr_number=123 --var pr_branch=branch-name
+
+# CONFIGURE: Set to a free example-repo-N folder (run `repos` to find one)
+directory: ~/projects/example-repo
+
+cli-agent: claude
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 1800  # 30 minutes per task to allow for council review + fix implementation
+  additional-dirs:
+    - ~/projects/example-repo/example-service
+
+on-error: continue  # Continue to next PR if one fails
+
+template-variables:
+  # Single PR mode: pass both pr_number AND pr_branch to skip GitHub API entirely
+  # Example: --var pr_number=123 --var pr_branch=your-handle-docstring-updates-foo
+  pr_number: ""
+  pr_branch: ""
+  # Unique workspace per workflow execution (uses datetime for isolation)
+  workspace: "/tmp/docstring-review-workspace-{{datetime}}"
+  prs_csv: "{{workspace}}/open-docstring-prs.csv"
+  # Unique temp_dir per workflow run (isolated for parallel execution)
+  temp_dir: "{{workspace}}/temp"
+  ambiguities_file: "~/Desktop/docstring_standard_ambiguities.md"
+  docstring_standard: "{{directory}}/example-service/docs/docstring_standard.md"
+  github_user: "your-handle"
+
+task:
+  # Phase 1: Setup directories and empty CSV (always runs)
+  - setup:
+      prompt: |
+        Create the workspace directories and empty CSV:
+
+        mkdir -p {{workspace}}
+        mkdir -p {{temp_dir}}
+
+        # Create empty CSV with header (loop will have 0 iterations if not populated)
+        echo 'number,title,branch,url' > {{prs_csv}}
+
+        Report: "Workspace ready"
+
+  # Phase 2a: Single PR mode - STEP 1: Checkout branch (NO MERGE to avoid polluting old PRs)
+  - checkout-branch:
+      cli-agent-config:
+        timeout: 120  # 2 minutes - just checkout
+      prompt: |
+        {% if pr_number and pr_branch %}
+        LOG: "CHECKOUT START: $(date -Iseconds) - PR #{{pr_number}}: Checking out branch"
+
+        PR #{{pr_number}}: {{pr_branch}}
+        URL: https://github.com/example-org/example-repo/pull/{{pr_number}}
+
+        1. Fetch the PR branch:
+           git fetch origin {{pr_branch}}
+
+        2. Checkout the PR branch:
+           git checkout {{pr_branch}}
+
+        3. Pull the latest commits:
+           git pull origin {{pr_branch}}
+
+        4. Verify correct branch:
+           CURRENT_BRANCH=$(git branch --show-current)
+           if [ "$CURRENT_BRANCH" != "{{pr_branch}}" ]; then
+             echo "ERROR: Expected branch {{pr_branch}}, got $CURRENT_BRANCH"
+             exit 1
+           fi
+
+        4. Write success marker:
+           echo "checked-out" > {{temp_dir}}/pr-{{pr_number}}-checkout-status.txt
+
+        LOG: "CHECKOUT COMPLETE: $(date -Iseconds) - Ready to review"
+
+        IMPORTANT: We do NOT merge master to avoid polluting old PR branches
+        with hundreds of commits. PRs are reviewed as-is.
+        {% else %}
+        echo "Skipping checkout-branch - using discovery mode"
+        {% endif %}
+
+      validate:
+        - file-exists: "{{temp_dir}}/pr-{{pr_number}}-checkout-status.txt"
+        - file-not-empty: "{{temp_dir}}/pr-{{pr_number}}-checkout-status.txt"
+
+  # Phase 2a-2: Single PR mode - Check for empty diff (prevent hallucination)
+  - check-diff:
+      cli-agent-config:
+        timeout: 60  # 1 minute - simple check
+      prompt: |
+        {% if pr_number and pr_branch %}
+        LOG: "DIFF CHECK START: $(date -Iseconds) - PR #{{pr_number}}: Checking for changes"
+
+        Check if this PR actually has changes compared to master.
+
+        1. Ensure branch is checked out:
+           git checkout {{pr_branch}}
+
+        2. Check for changes:
+           DIFF_OUTPUT=$(git diff origin/master...HEAD)
+           DIFF_LINES=$(echo "$DIFF_OUTPUT" | wc -l | tr -d ' ')
+
+        3. Determine if diff is empty:
+           if [ "$DIFF_LINES" -eq "0" ] || [ -z "$DIFF_OUTPUT" ]; then
+             echo "NO CHANGES: Branch is identical to master"
+             echo "no-changes" > {{temp_dir}}/pr-{{pr_number}}-diff-status.txt
+
+             # Create outcome file to skip council review
+             echo "no-changes" > {{temp_dir}}/pr-{{pr_number}}-outcome.txt
+
+             LOG: "DIFF CHECK COMPLETE: $(date -Iseconds) - No changes detected, will skip council review"
+           else
+             echo "CHANGES FOUND: $DIFF_LINES lines of diff"
+             echo "has-changes" > {{temp_dir}}/pr-{{pr_number}}-diff-status.txt
+
+             LOG: "DIFF CHECK COMPLETE: $(date -Iseconds) - Changes detected, proceeding to council review"
+           fi
+
+        4. Verify status file created:
+           cat {{temp_dir}}/pr-{{pr_number}}-diff-status.txt
+        {% else %}
+        echo "Skipping check-diff - using discovery mode"
+        {% endif %}
+
+      validate:
+        - file-exists: "{{temp_dir}}/pr-{{pr_number}}-diff-status.txt"
+        - file-not-empty: "{{temp_dir}}/pr-{{pr_number}}-diff-status.txt"
+
+  # Phase 2a-3: Single PR mode - Enforce docstring-only BEFORE council review
+  - enforce-branch-docstring-only:
+      cli-agent-config:
+        timeout: 600  # 10 minutes - may need to revert code and extract docstrings
+      prompt: |
+        {% if pr_number and pr_branch %}
+        # Skip if no changes detected
+        if [ -f "{{temp_dir}}/pr-{{pr_number}}-diff-status.txt" ]; then
+          DIFF_STATUS=$(cat {{temp_dir}}/pr-{{pr_number}}-diff-status.txt)
+          if [ "$DIFF_STATUS" = "no-changes" ]; then
+            echo "SKIP: No changes in branch - nothing to enforce"
+            exit 0
+          fi
+        fi
+
+        LOG: "BRANCH ENFORCE START: $(date -Iseconds) - PR #{{pr_number}}: Checking full branch for code changes"
+
+        git checkout {{pr_branch}}
+
+        # Get FULL PR diff against master and save it
+        echo "Getting full PR diff against master..."
+        git diff origin/master...HEAD > {{temp_dir}}/pr-{{pr_number}}-full-branch-diff.txt
+
+        echo "Diff size: $(wc -l {{temp_dir}}/pr-{{pr_number}}-full-branch-diff.txt)"
+
+        # CRITICAL: Analyze the FULL branch diff to detect ANY code changes
+        # Do NOT use grep - read and analyze the entire diff
+
+        QUESTION: "Does this PR branch include non-docstring code changes against master?
+
+        Analyze the full diff at {{temp_dir}}/pr-{{pr_number}}-full-branch-diff.txt
+
+        Look for ANY of these code changes (additions OR deletions):
+        - Import statement changes (import, from)
+        - Function or class signature modifications
+        - Function body changes (return, if, for, while, try, assignments, variable declarations)
+        - Code block additions or removals
+        - Logic changes or refactoring
+        - Comments outside of docstrings
+        - Pylint/type-ignore directives
+
+        DOCSTRING-ONLY changes (these are OK):
+        - Adding/removing/modifying triple-quoted docstrings
+        - Changing docstring content or structure
+        - Adding blank lines within docstrings
+
+        CRITICAL: Check BOTH additions (+) AND deletions (-) lines.
+
+        Write your verdict to {{temp_dir}}/pr-{{pr_number}}-branch-code-check.txt:
+        - If ONLY docstrings changed: Write 'docstring-only'
+        - If ANY code changed: Write 'code-changes-detected' followed by a description
+        "
+
+        # Read the verdict
+        cat {{temp_dir}}/pr-{{pr_number}}-branch-code-check.txt
+
+        # If code changes detected, fix them
+        if grep -q "code-changes-detected" {{temp_dir}}/pr-{{pr_number}}-branch-code-check.txt; then
+          echo "⚠ Code changes detected in PR branch"
+          cat {{temp_dir}}/pr-{{pr_number}}-branch-code-check.txt
+          echo ""
+          echo "FIXING: Reverting to master code, extracting and re-applying docstrings only..."
+
+          # Get list of changed files
+          CHANGED_FILES=$(git diff origin/master...HEAD --name-only)
+          echo "Files changed: $CHANGED_FILES"
+
+          # For each changed file, extract docstrings and apply to master version
+          for file in $CHANGED_FILES; do
+            echo "Processing $file..."
+
+            # Save current version (has both docstrings and code changes)
+            cp "$file" "/tmp/pr-{{pr_number}}-mixed-${{file##*/}}"
+
+            # Get master version (clean code)
+            git checkout origin/master -- "$file"
+
+            # Use Claude to extract and transfer ONLY docstrings
+            Read "/tmp/pr-{{pr_number}}-mixed-${{file##*/}}" (branch version with docstrings + code)
+            Read "$file" (master version with clean code)
+
+            Task: Merge by transferring ONLY docstrings from branch to master:
+            1. Keep ALL code from master (imports, signatures, function bodies, logic)
+            2. Transfer ONLY docstring updates from branch version
+            3. Write merged result to "$file"
+
+            CRITICAL: Only copy docstrings (triple-quoted strings). Do NOT copy:
+            - Import changes
+            - Function signature changes
+            - Function body code
+            - Variable assignments
+            - Comments or directives
+
+            # Stage the fixed file
+            git add "$file"
+          done
+
+          # Commit the docstring-only version
+          git commit -m "Fix: Revert code changes, keep docstrings only"
+          git push --force origin {{pr_branch}}
+
+          echo "✓ Fixed: Code reverted to master, docstrings preserved"
+        else
+          echo "✓ Clean: Branch has docstring-only changes"
+        fi
+
+        LOG: "BRANCH ENFORCE COMPLETE: $(date -Iseconds) - Branch is now docstring-only"
+        {% else %}
+        echo "Skipping enforce-branch-docstring-only - using discovery mode"
+        {% endif %}
+
+      validate:
+        - file-exists: "{{temp_dir}}/pr-{{pr_number}}-branch-code-check.txt"
+        - file-not-empty: "{{temp_dir}}/pr-{{pr_number}}-branch-code-check.txt"
+
+  # Phase 2b: Single PR mode - STEP 2: Council review
+  - council-review:
+      cli-agent-config:
+        timeout: 1800  # 30 minutes - council queries 3 AI tools in parallel
+      prompt: |
+        {% if pr_number and pr_branch %}
+        # Check if diff exists (skip council if no changes)
+        if [ -f "{{temp_dir}}/pr-{{pr_number}}-diff-status.txt" ]; then
+          DIFF_STATUS=$(cat {{temp_dir}}/pr-{{pr_number}}-diff-status.txt)
+          if [ "$DIFF_STATUS" = "no-changes" ]; then
+            echo "SKIP: No changes detected - branch is identical to master"
+            echo "Skipping council review for PR #{{pr_number}}"
+            # Create empty review file to satisfy validators
+            echo "# No Review Needed - No Changes" > {{temp_dir}}/pr-{{pr_number}}-review.md
+            echo "Branch is identical to master. No council review performed." >> {{temp_dir}}/pr-{{pr_number}}-review.md
+            exit 0
+          fi
+        fi
+
+        LOG: "COUNCIL START: $(date -Iseconds) - PR #{{pr_number}}: Running council review"
+
+        PR #{{pr_number}}: {{pr_branch}}
+
+        1. Ensure branch is checked out:
+           git checkout {{pr_branch}}
+
+        2. Get the PR diff and save it:
+           DIFF_OUTPUT=$(git diff origin/master...HEAD)
+
+           # CRITICAL: Verify diff is not empty before proceeding
+           if [ -z "$DIFF_OUTPUT" ]; then
+             echo "ERROR: git diff returned empty output"
+             echo "This indicates the branch is identical to master"
+             echo "Council review cannot proceed without actual changes"
+             exit 1
+           fi
+
+           # Save diff for verification
+           echo "$DIFF_OUTPUT" > {{temp_dir}}/pr-{{pr_number}}-actual-diff.txt
+           echo "Diff saved: $(wc -l {{temp_dir}}/pr-{{pr_number}}-actual-diff.txt)"
+
+        3. Run /ask-council with the ACTUAL diff (no hallucination):
+
+           CRITICAL: Use the ACTUAL diff saved in the file. Do NOT make up or infer changes.
+           Read the actual diff from: {{temp_dir}}/pr-{{pr_number}}-actual-diff.txt
+
+           council "PR: https://github.com/example-org/example-repo/pull/{{pr_number}}
+
+           Here is a PR that makes some docstring updates. Below is the ACTUAL git diff
+           from this branch. Examine the docstring updates/additions and validate that all
+           updated/added docstrings conform to the docstring standard.
+
+           IMPORTANT: The diff below is the ACTUAL output from git. Do not infer, assume,
+           or make up any changes. Only review what is shown in this diff.
+
+           DIFF:
+           $(cat {{temp_dir}}/pr-{{pr_number}}-actual-diff.txt)
+
+           DOCSTRING STANDARD:
+           $(cat {{docstring_standard}})
+
+           Report any deviations and ambiguities. Proposed fixes should be a numbered list
+           with how many council members agreed."
+
+        NOTE: You may run multiple council rounds, discussions, or clarifications as needed.
+
+        4. CRITICAL REQUIREMENT - Create the review file with EXACTLY this path:
+           {{temp_dir}}/pr-{{pr_number}}-review.md
+
+           This exact filename is REQUIRED for downstream tasks. Do NOT use alternative
+           filenames like "pr-{{pr_number}}-council-output.txt" or any other variation.
+
+           After completing all council rounds (however many are needed), write the final
+           consolidated review to this exact file path. Downstream tasks will fail if this
+           file does not exist.
+
+           Verify the file was created:
+           ls -lh {{temp_dir}}/pr-{{pr_number}}-review.md
+
+        LOG: "COUNCIL COMPLETE: $(date -Iseconds) - Council review saved to {{temp_dir}}/pr-{{pr_number}}-review.md"
+        {% else %}
+        echo "Skipping council-review - using discovery mode"
+        {% endif %}
+
+      validate:
+        - file-exists: "{{temp_dir}}/pr-{{pr_number}}-review.md"
+        - file-not-empty: "{{temp_dir}}/pr-{{pr_number}}-review.md"
+
+      retry:
+        max-attempts: 2
+        on-validation-failure: retry
+
+  # Phase 2c: Single PR mode - STEP 3: Implement fixes
+  - implement-fixes:
+      cli-agent-config:
+        timeout: 600  # 10 minutes - implement fixes + autofix
+      prompt: |
+        {% if pr_number and pr_branch %}
+        # Check for no-changes status (skip if branch is identical to master)
+        if [ -f "{{temp_dir}}/pr-{{pr_number}}-diff-status.txt" ]; then
+          DIFF_STATUS=$(cat {{temp_dir}}/pr-{{pr_number}}-diff-status.txt)
+          if [ "$DIFF_STATUS" = "no-changes" ]; then
+            echo "SKIP: No changes in branch - identical to master"
+            echo "no-fixes-needed" > {{temp_dir}}/pr-{{pr_number}}-fixes-status.txt
+            exit 0
+          fi
+        fi
+
+        # Check if council review file exists (skip if council-review failed)
+        if [ ! -f "{{temp_dir}}/pr-{{pr_number}}-review.md" ]; then
+          echo "SKIP: Council review file not found - previous task likely failed"
+          echo "Skipping fix implementation for PR #{{pr_number}}"
+          exit 0
+        fi
+
+        LOG: "FIXES START: $(date -Iseconds) - PR #{{pr_number}}: Implementing council-recommended fixes"
+
+        PR #{{pr_number}}: {{pr_branch}}
+
+        1. Ensure branch is checked out:
+           git checkout {{pr_branch}}
+
+        2. Read the council review findings:
+           Read {{temp_dir}}/pr-{{pr_number}}-review.md
+
+        3. CRITICAL: Do NOT ask for user confirmation before implementing fixes.
+           Implement all council-recommended fixes immediately and automatically.
+
+        4. Based on the council review:
+
+           a. If NO issues were found:
+              - Write "no-fixes-needed" to {{temp_dir}}/pr-{{pr_number}}-fixes-status.txt
+              - Skip to next step
+
+           b. If issues were found:
+              - IMMEDIATELY implement ALL fixes from the council's "Proposed Fixes" list
+              - Do NOT skip ANY issues - implement EVERY fix regardless of priority level
+              - Do NOT ask for confirmation before implementing
+              - Do NOT skip or delay ANY implementation
+              - Make the exact changes prescribed by the council for EVERY issue
+              - ONLY modify docstrings, do NOT change any code logic
+
+              CRITICAL: After implementing, create a detailed fix report:
+              - List each issue you fixed in {{temp_dir}}/pr-{{pr_number}}-fixes-report.txt
+              - Format: "Issue N (PRIORITY): Description of what was changed"
+              - This file will be used to generate accurate bot comments
+
+           c. After implementing ALL fixes:
+              LOG: "AUTOFIX START: $(date -Iseconds) - Running autofix"
+              - Run: just autofix
+
+              LOG: "COMMIT START: $(date -Iseconds) - Committing and pushing fixes"
+
+              # Stage only service directory changes
+              - git add example-service/ service-a/ public-api/ --update
+
+              # Verify exactly 1 file changed
+              CHANGED_FILES=$(git diff --cached --name-only | wc -l | tr -d ' ')
+              if [ "$CHANGED_FILES" != "1" ]; then
+                echo "ERROR: Expected exactly 1 file changed, found $CHANGED_FILES files:"
+                git diff --cached --name-only
+                exit 1
+              fi
+
+              # Verify only docstrings changed (look for code patterns outside docstrings)
+              if git diff --cached | grep -E '^\+[^+]' | grep -vE '("""|Args:|Returns:|Raises:|Permissions:|Notes:|Json:|Summary:|    )' | grep -v '^+++' | grep -q .; then
+                echo "WARNING: Detected potential code changes (not just docstrings):"
+                git diff --cached | grep -E '^\+[^+]' | grep -vE '("""|Args:|Returns:|Raises:|Permissions:|Notes:|Json:|Summary:|    )' | grep -v '^+++'
+                echo "Aborting commit - review changes manually"
+                exit 1
+              fi
+
+              - git status --short  # Show what will be committed
+              - git commit -m "Fix docstring issues from council review"
+              - git push origin {{pr_branch}}
+              - Write "fixes-applied" to {{temp_dir}}/pr-{{pr_number}}-fixes-status.txt
+
+              LOG: "FIXES COMPLETE: $(date -Iseconds) - All fixes pushed to GitHub"
+
+           d. Return to master: git checkout master
+
+        IMPORTANT: This is an automated workflow. Implement fixes without asking permission.
+        {% else %}
+        echo "Skipping implement-fixes - using discovery mode"
+        {% endif %}
+
+      validate:
+        - file-exists: "{{temp_dir}}/pr-{{pr_number}}-fixes-status.txt"
+        - file-not-empty: "{{temp_dir}}/pr-{{pr_number}}-fixes-status.txt"
+
+  # Phase 2d: Single PR mode - STEP 4: Enforce docstring-only changes
+  # Phase 2d: Single PR mode - STEP 4: Log ambiguities
+  - log-ambiguities:
+      cli-agent-config:
+        timeout: 180  # 3 minutes - just reading and logging
+      prompt: |
+        {% if pr_number and pr_branch %}
+        # Check if council review file exists (skip if council-review failed)
+        if [ ! -f "{{temp_dir}}/pr-{{pr_number}}-review.md" ]; then
+          echo "SKIP: Council review file not found - previous task likely failed"
+          echo "Skipping ambiguity logging for PR #{{pr_number}}"
+          exit 0
+        fi
+
+        LOG: "LOGGING START: $(date -Iseconds) - PR #{{pr_number}}: Recording ambiguities"
+
+        PR #{{pr_number}}: {{pr_branch}}
+
+        1. Read the council review:
+           Read {{temp_dir}}/pr-{{pr_number}}-review.md
+
+        2. Extract any ambiguities identified in the review
+
+        3. Append to {{ambiguities_file}}:
+        ```
+        ## PR #{{pr_number}} - Single PR Review
+        Reviewed: {{datetime}}
+        Branch: {{pr_branch}}
+        Review File: {{temp_dir}}/pr-{{pr_number}}-review.md
+
+        [List any ambiguities from the review, or "No ambiguities found"]
+
+        ---
+        ```
+
+        LOG: "PHASE COMPLETE: $(date -Iseconds) - Finished review for PR #{{pr_number}}"
+        {% else %}
+        echo "Skipping log-ambiguities - using discovery mode"
+        {% endif %}
+
+  # Phase 2e: Single PR mode - STEP 5: Enforce docstring-only changes
+  - enforce-docstring-only:
+      cli-agent-config:
+        timeout: 600  # 10 minutes - may need to re-apply docstrings to master version
+      prompt: |
+        {% if pr_number and pr_branch %}
+        LOG: "ENFORCE START: $(date -Iseconds) - PR #{{pr_number}}: Checking for code changes"
+
+        # Check if fixes were applied (skip if no fixes)
+        if [ ! -f "{{temp_dir}}/pr-{{pr_number}}-fixes-status.txt" ]; then
+          echo "SKIP: No fixes applied, enforcement not needed"
+          exit 0
+        fi
+
+        git checkout {{pr_branch}}
+
+        # Check 1: Verify exactly 1 file changed in last commit
+        CHANGED_FILES=$(git diff HEAD~1 --name-only | wc -l | tr -d ' ')
+        if [ "$CHANGED_FILES" != "1" ]; then
+          echo "ERROR: Found $CHANGED_FILES files changed (expected 1)"
+          git diff HEAD~1 --name-only
+          echo "This indicates a serious issue - aborting"
+          exit 1
+        fi
+
+        CHANGED_FILE=$(git diff HEAD~1 --name-only)
+        echo "Checking file: $CHANGED_FILE"
+
+        # Check 2: Comprehensive diff analysis (not grep patterns)
+        echo "Saving full diff for analysis..."
+        git diff HEAD~1 > {{temp_dir}}/pr-{{pr_number}}-commit-diff.txt
+
+        # CRITICAL: Analyze the FULL diff to detect code changes
+        # Do NOT use grep patterns - they miss deletions and refactoring
+
+        QUESTION: "Does this commit include non-docstring code changes?
+
+        Analyze the full diff at {{temp_dir}}/pr-{{pr_number}}-commit-diff.txt
+
+        Look for ANY of these code changes:
+        - Import statement additions/removals/modifications
+        - Function or class signature changes (def/class lines)
+        - Function body changes (return, if, for, while, try, assignments)
+        - Variable assignment refactoring
+        - Code block additions or removals
+        - Comments outside of docstrings
+        - Pylint/flake8 directives
+
+        DOCSTRING-ONLY changes are:
+        - Adding/removing/modifying triple-quoted strings after function definitions
+        - Changing text within existing docstrings
+        - Adding blank lines within docstrings
+
+        Write your verdict to {{temp_dir}}/pr-{{pr_number}}-code-check.txt:
+        - If ONLY docstrings changed: Write 'docstring-only'
+        - If ANY code changed: Write 'code-changes-detected' followed by description
+        "
+
+        Read {{temp_dir}}/pr-{{pr_number}}-code-check.txt
+
+        # Check the verdict
+        if grep -q "code-changes-detected" {{temp_dir}}/pr-{{pr_number}}-code-check.txt; then
+          echo "⚠ Code changes detected (not just docstrings)"
+          cat {{temp_dir}}/pr-{{pr_number}}-code-check.txt
+          echo ""
+          echo "FIXING: Reverting code to master, re-applying docstrings only..."
+
+          # Save the file with docstring fixes
+          cp "$CHANGED_FILE" /tmp/pr-{{pr_number}}-with-fixes.py
+
+          # Get master version (clean code)
+          git checkout origin/master -- "$CHANGED_FILE"
+
+          # Use Claude to transfer ONLY the docstrings from the fixed version
+          # to the master version (keeping master's code intact)
+
+          Read /tmp/pr-{{pr_number}}-with-fixes.py (the version with docstring fixes)
+          Read $CHANGED_FILE (the master version with original code)
+
+          Task: Merge these two versions by transferring ONLY docstrings:
+          1. Keep ALL code from the master version (imports, function bodies, logic)
+          2. Transfer ONLY the docstring updates from the fixed version
+          3. Write the merged result back to $CHANGED_FILE
+
+          CRITICAL: Only copy docstrings (triple-quoted strings after function definitions).
+          Do NOT copy any imports, function bodies, or other code from the fixed version.
+
+          After merging:
+          - git add "$CHANGED_FILE"
+          - git commit --amend --no-edit
+          - git push --force origin {{pr_branch}}
+
+          echo "✓ Fixed: Code reverted to master, docstrings preserved"
+        else
+          echo "✓ Clean: Only docstrings modified"
+        fi
+
+        LOG: "ENFORCE COMPLETE: $(date -Iseconds) - Docstring-only changes enforced"
+        {% else %}
+        echo "Skipping enforce-docstring-only - using discovery mode"
+        {% endif %}
+
+  # Phase 2f: Single PR mode - STEP 5a: Determine review outcome
+  - determine-review-outcome:
+      cli-agent-config:
+        timeout: 60  # 1 minute - simple logic
+      prompt: |
+        {% if pr_number and pr_branch %}
+        LOG: "OUTCOME START: $(date -Iseconds) - PR #{{pr_number}}: Determining review outcome"
+
+        Determine what happened in the council review and write ONE word to a file.
+
+        1. Check if this was a no-changes case (check-diff detected empty branch):
+           if [ -f "{{temp_dir}}/pr-{{pr_number}}-outcome.txt" ] && [ "$(cat {{temp_dir}}/pr-{{pr_number}}-outcome.txt)" = "no-changes" ]; then
+             echo "Outcome already set to no-changes by check-diff task"
+             exit 0
+           fi
+
+        2. Check the fixes status file:
+           cat {{temp_dir}}/pr-{{pr_number}}-fixes-status.txt
+
+        3. Write the outcome to {{temp_dir}}/pr-{{pr_number}}-outcome.txt:
+
+           If fixes-status.txt contains "fixes-applied":
+             echo "fixes-applied" > {{temp_dir}}/pr-{{pr_number}}-outcome.txt
+
+           If fixes-status.txt contains "no-fixes-needed":
+             Read {{temp_dir}}/pr-{{pr_number}}-review.md to determine WHY:
+
+             - If council found ZERO issues (clean review):
+               echo "clean" > {{temp_dir}}/pr-{{pr_number}}-outcome.txt
+
+             - If council found issues BUT they're already fixed upstream:
+               echo "upstream" > {{temp_dir}}/pr-{{pr_number}}-outcome.txt
+
+        3. Verify the outcome file was created:
+           cat {{temp_dir}}/pr-{{pr_number}}-outcome.txt
+
+        That's all. Just determine the outcome and write one word.
+
+        LOG: "OUTCOME COMPLETE: $(date -Iseconds) - Outcome determined"
+        {% else %}
+        echo "Skipping determine-review-outcome - using discovery mode"
+        {% endif %}
+
+      validate:
+        - file-exists: "{{temp_dir}}/pr-{{pr_number}}-outcome.txt"
+        - file-not-empty: "{{temp_dir}}/pr-{{pr_number}}-outcome.txt"
+
+  # Phase 2f: Single PR mode - STEP 5b: Craft PR comment
+  - craft-pr-comment:
+      cli-agent-config:
+        timeout: 120  # 2 minutes - focused on writing
+      prompt: |
+        {% if pr_number and pr_branch %}
+        LOG: "CRAFT START: $(date -Iseconds) - PR #{{pr_number}}: Crafting PR comment"
+
+        Write a PR comment summarizing the council review results.
+
+        1. Read the outcome:
+           cat {{temp_dir}}/pr-{{pr_number}}-outcome.txt
+
+        2. Read the council review:
+           cat {{temp_dir}}/pr-{{pr_number}}-review.md
+
+        3. Based on the outcome, write the appropriate comment to {{temp_dir}}/pr-{{pr_number}}-comment.md:
+
+           ═══════════════════════════════════════════════════════════════
+           OUTCOME: "fixes-applied"
+           ═══════════════════════════════════════════════════════════════
+
+           Write a comment with this structure:
+
+           🤖 **Docstring Council Review - Fixes Applied**
+
+           **Review Summary**
+           Council (Claude, Gemini, Codex) identified **N issues** requiring fixes.
+
+           ### Issues Found & Fixed
+
+           CRITICAL ACCURACY REQUIREMENT:
+           1. First, read the fixes report: cat {{temp_dir}}/pr-{{pr_number}}-fixes-report.txt
+           2. List ONLY the issues documented in that file (one per line)
+           3. Do NOT infer or add issues not in the report
+           4. Do NOT list all council issues - only what was ACTUALLY FIXED
+
+           [For each line in the fixes-report.txt file, add a checkmark:]
+           1. ✅ [Issue description exactly as written in report file]
+           2. ✅ [Issue description exactly as written in report file]
+           ...
+
+           ### Actions Taken
+           - ✅ All council-recommended fixes implemented automatically
+           - ✅ Committed: [commit-hash from: git log -1 --format="%h %s"]
+           - ✅ Verification: Only docstrings modified (no code changes)
+           - ✅ Ran `just autofix` before commit
+
+           **Status**: ✅ Ready to merge
+
+           ---
+           _Automated review via [agent-yaml docstring workflow](https://github.com/roboalchemist/agent-yaml)_
+
+           ═══════════════════════════════════════════════════════════════
+           OUTCOME: "clean"
+           ═══════════════════════════════════════════════════════════════
+
+           Write a comment with this structure:
+
+           🤖 **Docstring Council Review - No Fixes Needed**
+
+           **Review Summary**
+           Council (Claude, Gemini, Codex) completed review of this PR.
+
+           ### Why No Fixes?
+           ✅ **All docstrings comply with example-service standard**
+
+           The council found no violations or inconsistencies with the docstring standard
+           documented in `example-service/docs/docstring_standard.md`.
+
+           ### Verification
+           - ✅ Council reviewed all changed files
+           - ✅ Docstrings follow proper structure (Args, Json, Returns, Raises, Permissions)
+           - ✅ Content is accurate and complete
+           - ✅ No ambiguities or standard violations detected
+
+           **Status**: ✅ Ready to merge
+
+           ---
+           _Automated review via [agent-yaml docstring workflow](https://github.com/roboalchemist/agent-yaml)_
+
+           ═══════════════════════════════════════════════════════════════
+           OUTCOME: "upstream"
+           ═══════════════════════════════════════════════════════════════
+
+           Write a comment with this structure:
+
+           🤖 **Docstring Council Review - Already Fixed**
+
+           **Review Summary**
+           Council identified issues, but they were already fixed upstream.
+
+           ### Original Issues Found
+           The council identified **N issues** in an earlier commit:
+           [Read from council review and list each issue]
+           1. [First issue description]
+           2. [Second issue description]
+           ...
+
+           ### Why No Fixes Applied?
+           ✅ **Upstream commit already addressed all issues**
+
+           A more recent commit (pushed during or after the council review) already fixed
+           these problems. The PR is now in compliance with the docstring standard.
+
+           ### Verification
+           - ✅ Council review completed on earlier commit
+           - ✅ Latest commit already incorporates fixes
+           - ✅ No additional changes needed
+
+           **Status**: ✅ Ready to merge
+
+           ---
+           _Automated review via [agent-yaml docstring workflow](https://github.com/roboalchemist/agent-yaml)_
+
+           ═══════════════════════════════════════════════════════════════
+           OUTCOME: "no-changes"
+           ═══════════════════════════════════════════════════════════════
+
+           Write a comment with this structure:
+
+           🤖 **Docstring Review - No Changes Detected**
+
+           **Review Summary**
+           This PR branch is identical to master - no net changes to review.
+
+           ### Analysis
+           The branch `{{pr_branch}}` contains commits but the final state is
+           byte-for-byte identical to the master branch. This typically happens when:
+           - Commits were made then reverted
+           - Changes were already merged to master
+           - The PR restored code back to its original state
+
+           ### Recommendation
+           ✅ **Close this PR without merging**
+
+           Since there are no net changes between this branch and master, merging would
+           add commits that have zero effect. The PR can be safely closed.
+
+           **Status**: ⚪ No action needed - close PR
+
+           ---
+           _Automated review via [agent-yaml docstring workflow](https://github.com/roboalchemist/agent-yaml)_
+
+        4. Verify the comment file was created:
+           ls -lh {{temp_dir}}/pr-{{pr_number}}-comment.md
+
+        That's all. Just write the comment to the file.
+
+        LOG: "CRAFT COMPLETE: $(date -Iseconds) - Comment crafted"
+        {% else %}
+        echo "Skipping craft-pr-comment - using discovery mode"
+        {% endif %}
+
+      validate:
+        - file-exists: "{{temp_dir}}/pr-{{pr_number}}-comment.md"
+        - file-not-empty: "{{temp_dir}}/pr-{{pr_number}}-comment.md"
+        - contains:
+            file: "{{temp_dir}}/pr-{{pr_number}}-comment.md"
+            text: "🤖"
+
+      retry:
+        max-attempts: 2
+        on-validation-failure: retry
+
+  # Phase 2f: Single PR mode - STEP 5c: Post PR comment
+  - post-pr-comment:
+      cli-agent-config:
+        timeout: 60  # 1 minute - simple gh command
+      prompt: |
+        {% if pr_number and pr_branch %}
+        # CRITICAL: Only post if council review actually completed
+        if [ ! -f "{{temp_dir}}/pr-{{pr_number}}-review.md" ]; then
+          echo "SKIP: Council review file not found - review did not complete"
+          echo "NOT posting comment to PR #{{pr_number}}"
+          exit 0
+        fi
+
+        # Check if review file contains actual review (not just error/skip message)
+        if grep -q "No Review Needed - No Changes" {{temp_dir}}/pr-{{pr_number}}-review.md; then
+          echo "SKIP: No changes in branch - not posting comment"
+          exit 0
+        fi
+
+        # Check if outcome file exists and indicates review completed
+        if [ ! -f "{{temp_dir}}/pr-{{pr_number}}-outcome.txt" ]; then
+          echo "SKIP: Outcome file not found - review may have failed"
+          echo "NOT posting comment to PR #{{pr_number}}"
+          exit 0
+        fi
+
+        LOG: "POST START: $(date -Iseconds) - PR #{{pr_number}}: Posting comment to GitHub"
+
+        Post the crafted comment to PR #{{pr_number}}.
+
+        1. Verify the comment file exists:
+           ls -lh {{temp_dir}}/pr-{{pr_number}}-comment.md
+
+        2. Post the comment to GitHub:
+           gh pr comment {{pr_number}} --body-file {{temp_dir}}/pr-{{pr_number}}-comment.md
+
+        3. Confirm it was posted:
+           echo "✅ Comment posted successfully to PR #{{pr_number}}"
+           echo "View at: https://github.com/example-org/example-repo/pull/{{pr_number}}"
+
+        That's all. Just post the comment.
+
+        LOG: "POST COMPLETE: $(date -Iseconds) - Comment posted to GitHub"
+        {% else %}
+        echo "Skipping post-pr-comment - using discovery mode"
+        {% endif %}
+
+  # Phase 2g: Discovery mode (skips if pr_number is set)
+  - discover-prs:
+      prompt: |
+        {% if pr_number %}
+        # SKIP: Using single PR mode instead
+        echo "Skipping discovery - single PR mode active"
+        {% else %}
+        # DISCOVERY MODE: Search GitHub for open PRs that need docstring review
+
+        SEARCH CRITERIA:
+        - Repository: example-org/example-repo
+        - State: open
+        - Title contains: "Update docstrings for"
+        - Author: {{github_user}}
+        - Auto-merge is NOT enabled
+
+        STEPS:
+        1. Search for matching PRs and filter to those WITHOUT auto-merge enabled:
+
+           gh pr list --repo example-org/example-repo --author "{{github_user}}" --state open --search "Update docstrings in:title" --json number,title,headRefName,url,autoMergeRequest --limit 50 | jq '[.[] | select(.autoMergeRequest == null)]'
+
+        2. Write results to CSV file {{prs_csv}} with columns: number,title,branch,url
+
+           Use jq to transform:
+           ... | jq -r '["number","title","branch","url"], (.[] | [.number, .title, .headRefName, .url]) | @csv' > {{prs_csv}}
+
+        3. Report how many PRs were found.
+
+        If no PRs match, create an empty CSV with just the header row.
+        {% endif %}
+
+  # CSV Loop: Process PRs in parallel using git worktrees
+  # In single PR mode, CSV is empty so loop has 0 iterations (effectively skipped)
+  - review-and-fix-loop:
+      loop:
+        type: csv
+        source: "{{prs_csv}}"
+        skip-header: true
+        columns: [number, title, branch, url]
+        workers: 3  # Process 3 PRs in parallel
+        git-worktrees:
+          enabled: true
+          base: "{{directory}}/.docstring-review-worktrees"
+          branch-field: "branch"
+          name-template: "pr-{{loop.item.number}}"
+          cleanup: true
+      prompt: |
+        PR #{{loop.item.number}}: {{loop.item.title}}
+        URL: {{loop.item.url}}
+        Branch: {{loop.item.branch}}
+        Worker: {{loop.worker.id}}
+        Worktree: {{loop.worker.directory}}
+        Progress: {{loop.index}}/{{loop.total}}
+
+        LOG: "PHASE START: $(date -Iseconds) - Worker {{loop.worker.id}} starting review for PR #{{loop.item.number}}"
+
+        NOTE: Working in git worktree at {{loop.worker.directory}}
+        Branch {{loop.item.branch}} is already checked out.
+
+        IMPORTANT: We do NOT merge master to avoid polluting old PR branches
+        with hundreds of commits. Reviewing the PR as-is.
+
+        === COUNCIL REVIEW ===
+
+        LOG: "COUNCIL START: $(date -Iseconds) - Running council review"
+
+        Get the PR diff using local git (no API calls):
+        git diff origin/master...HEAD
+
+        Run /ask-council with the following prompt:
+        ---
+        PR: {{loop.item.url}}
+
+        Here is a PR that makes some docstring updates. Below is the git diff showing
+        the changes. Examine the docstring updates/additions and validate that all
+        updated/added docstrings conform to the docstring standard found in
+        {{docstring_standard}}. Validate that the contents of the docstring(s)
+        updated/added in this PR are accurate. If there are any deviations, report
+        back on them. Also report back any docstring ambiguities that caused issues
+        in the council. The proposed fixes should be a simple numbered list, with
+        how many agreed.
+
+        DIFF:
+        [Include the output from: git diff origin/master...HEAD]
+
+        DOCSTRING STANDARD:
+        [Include the contents of {{docstring_standard}}]
+        ---
+
+        Save the council's response to: {{temp_dir}}/pr-{{loop.item.number}}-review.md
+
+        LOG: "COUNCIL COMPLETE: $(date -Iseconds) - Council review saved"
+
+        === STEP 3: IMPLEMENT FIXES ===
+
+        LOG: "FIXES START: $(date -Iseconds) - Implementing council-recommended fixes"
+
+        CRITICAL: Do NOT ask for user confirmation before implementing fixes.
+        Implement all council-recommended fixes immediately and automatically.
+
+        Based on the council review:
+
+        1. If NO issues were found, skip to STEP 4.
+
+        2. If issues were found:
+           a. IMMEDIATELY implement EACH fix from the council's "Proposed Fixes" list
+              - Do NOT ask for confirmation
+              - Do NOT skip or delay implementation
+              - Make the exact changes prescribed by the council
+           b. ONLY modify docstrings, do NOT change any code logic
+           c. After implementing ALL fixes:
+              LOG: "AUTOFIX START: $(date -Iseconds) - Running autofix"
+              - Run: just autofix
+              LOG: "COMMIT START: $(date -Iseconds) - Committing and pushing fixes"
+
+              # Stage only service directory changes
+              - git add example-service/ service-a/ public-api/ --update
+
+              # Verify exactly 1 file changed
+              CHANGED_FILES=$(git diff --cached --name-only | wc -l | tr -d ' ')
+              if [ "$CHANGED_FILES" != "1" ]; then
+                echo "ERROR: Expected exactly 1 file changed, found $CHANGED_FILES files:"
+                git diff --cached --name-only
+                exit 1
+              fi
+
+              # Verify only docstrings changed (no code logic changes)
+              if git diff --cached | grep -E '^\+[^+]' | grep -vE '("""|Args:|Returns:|Raises:|Permissions:|Notes:|Json:|Summary:|    )' | grep -v '^+++' | grep -q .; then
+                echo "WARNING: Detected potential code changes (not just docstrings):"
+                git diff --cached | grep -E '^\+[^+]' | grep -vE '("""|Args:|Returns:|Raises:|Permissions:|Notes:|Json:|Summary:|    )' | grep -v '^+++'
+                echo "Aborting commit - review changes manually"
+                exit 1
+              fi
+
+              git status --short  # Show what will be committed
+              - git commit -m "Fix docstring issues from council review"
+              - git push origin {{loop.item.branch}}
+              LOG: "FIXES COMPLETE: $(date -Iseconds) - All fixes pushed to GitHub"
+
+        === VERIFICATION: Ensure docstring-only changes ===
+
+        # Verify only docstrings were modified (independent of council feedback)
+        LAST_COMMIT=$(git rev-parse HEAD)
+        CHANGED_FILES=$(git diff HEAD~1 --name-only | wc -l | tr -d ' ')
+
+        if [ "$CHANGED_FILES" != "1" ]; then
+          echo "ERROR: Found $CHANGED_FILES files changed (expected 1)"
+          echo "REVERTING commit to prevent multi-file pollution"
+          git reset --hard HEAD~1
+          git push --force origin {{loop.item.branch}}
+          exit 1
+        fi
+
+        # Check for code changes outside docstrings
+        if git diff HEAD~1 | grep -E '^\+[^+]' | grep -vE '("""|Args:|Returns:|Raises:|Permissions:|Notes:|Json:|Summary:|    |^\+$)' | grep -v '^+++' | grep -q .; then
+          echo "ERROR: Code changes detected (not just docstrings)"
+          echo "REVERTING commit to prevent code logic changes"
+          git reset --hard HEAD~1
+          git push --force origin {{loop.item.branch}}
+          exit 1
+        fi
+
+        echo "✓ Verification passed: Only docstrings in 1 file"
+
+           d. Return to master: git checkout master
+
+        IMPORTANT: This is an automated workflow. Implement fixes without asking permission.
+
+        === STEP 4: LOG AMBIGUITIES ===
+
+        LOG: "LOGGING START: $(date -Iseconds) - Recording ambiguities"
+
+        Append to {{ambiguities_file}}:
+        ```
+        ## PR #{{loop.item.number}} - {{loop.item.title}}
+        Reviewed: {{datetime}}
+
+        [List any ambiguities, or "No ambiguities found"]
+
+        ---
+        ```
+
+        LOG: "PHASE COMPLETE: $(date -Iseconds) - Finished review for PR #{{loop.item.number}}"
+
+  # Phase 3: Summary (always runs)
+  - summary:
+      prompt: |
+        Create a summary of the docstring review workflow.
+
+        {% if pr_number %}
+        # Single PR Mode Summary
+        Write to {{workspace}}/summary.md:
+
+        # Docstring PR Review Summary
+        Completed: {{datetime}}
+        Mode: Single PR
+
+        ## PR Reviewed
+        - PR #{{pr_number}}: {{pr_branch}}
+          URL: https://github.com/example-org/example-repo/pull/{{pr_number}}
+
+        ## Ambiguities
+        Check {{ambiguities_file}} for any logged ambiguities.
+        {% else %}
+        # Discovery Mode Summary
+        1. Count PRs processed from {{prs_csv}}
+        2. Read {{ambiguities_file}} for accumulated ambiguities
+
+        Write to {{workspace}}/summary.md:
+
+        # Docstring PR Review Summary
+        Completed: {{datetime}}
+        Mode: Discovery
+
+        ## PRs Reviewed
+        [list each PR from the CSV]
+
+        ## Accumulated Ambiguities
+        [summary from {{ambiguities_file}}]
+
+        ## Next Steps
+        - Review: {{ambiguities_file}}
+        - Consider updating the docstring standard
+        - Verify all PRs pushed successfully
+        {% endif %}
+
+        Print the summary to confirm completion.
+
+      validate:
+        - file-exists: "{{workspace}}/summary.md"
+        - file-not-empty: "{{workspace}}/summary.md"

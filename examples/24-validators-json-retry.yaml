@@ -1,0 +1,81 @@
+# Example 24: JSON Validator with Retry
+# Demonstrates retry mechanism with json-valid validator
+#
+# This workflow simulates a flaky JSON generation that requires retry
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-24-{{datetime}}"
+  json-file: "{{output-dir}}/data.json"
+  attempt-marker: "{{output-dir}}/attempt-count.txt"
+
+task:
+  - setup:
+      prompt: |
+        Create directory and initialize attempt counter:
+        mkdir -p {{output-dir}}
+        echo "0" > {{attempt-marker}}
+
+  - flaky-json-generation:
+      prompt: |
+        This task simulates flaky JSON generation that requires retry.
+
+        Read current attempt from {{attempt-marker}}:
+        ATTEMPT=$(cat {{attempt-marker}})
+        NEXT=$((ATTEMPT + 1))
+        echo "$NEXT" > {{attempt-marker}}
+
+        echo "Attempt #$NEXT" >&2
+
+        # Simulate flaky behavior: invalid JSON on first attempt, valid on second
+        if [ "$NEXT" -eq "1" ]; then
+          echo "First attempt - creating INVALID JSON (will fail validation)" >&2
+          cat > {{json-file}} << 'EOF'
+        {
+          "workflow": "example-24",
+          invalid: "missing quotes",
+          "attempt": 1
+        }
+        EOF
+        else
+          echo "Retry attempt - creating VALID JSON (will pass validation)" >&2
+          cat > {{json-file}} << 'EOF'
+        {
+          "workflow": "example-24",
+          "status": "success",
+          "attempt": 2,
+          "message": "JSON created successfully after retry"
+        }
+        EOF
+        fi
+
+      validate:
+        - file-exists: "{{json-file}}"
+        - json-valid: "{{json-file}}"
+
+      retry:
+        max-attempts: 3
+        on-validation-failure: retry
+
+  - verify-retry-worked:
+      prompt: |
+        Verify the retry mechanism worked:
+
+        1. Check final attempt count:
+           ATTEMPTS=$(cat {{attempt-marker}})
+           echo "Total attempts: $ATTEMPTS"
+
+        2. Verify final JSON is valid:
+           python3 -m json.tool {{json-file}} && echo "✅ Valid JSON"
+
+        3. Check attempt number in JSON:
+           grep '"attempt": 2' {{json-file}} && echo "✅ Retry succeeded"
+
+        4. Print success message:
+           echo "✅ JSON retry mechanism worked - valid JSON created after $ATTEMPTS attempts"

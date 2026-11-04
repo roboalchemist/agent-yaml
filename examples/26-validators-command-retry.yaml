@@ -1,0 +1,120 @@
+# Example 26: Command Validator with Retry
+# Demonstrates retry mechanism with command validator
+#
+# This workflow simulates a flaky task that requires retry to pass custom validation
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-26-{{datetime}}"
+  report-file: "{{output-dir}}/report.md"
+  validator-script: "{{output-dir}}/validate.sh"
+  attempt-marker: "{{output-dir}}/attempt-count.txt"
+
+task:
+  - setup:
+      prompt: |
+        Create directory and initialize attempt counter:
+        mkdir -p {{output-dir}}
+        echo "0" > {{attempt-marker}}
+
+  - create-validator-script:
+      prompt: |
+        Create validation script at {{validator-script}}:
+
+        #!/bin/bash
+        # Custom validator: Check if markdown file has minimum length
+        FILE="$1"
+
+        if [ ! -f "$FILE" ]; then
+          echo "Error: File not found: $FILE"
+          exit 1
+        fi
+
+        # Check minimum length (at least 200 characters)
+        SIZE=$(wc -c < "$FILE")
+        if [ "$SIZE" -lt 200 ]; then
+          echo "Error: File too short ($SIZE bytes, minimum 200)"
+          exit 1
+        fi
+
+        echo "✅ Validation passed ($SIZE bytes)"
+        exit 0
+
+        Make it executable:
+        chmod +x {{validator-script}}
+
+  - flaky-report-generation:
+      prompt: |
+        This task simulates flaky report generation that requires retry.
+
+        Read current attempt from {{attempt-marker}}:
+        ATTEMPT=$(cat {{attempt-marker}})
+        NEXT=$((ATTEMPT + 1))
+        echo "$NEXT" > {{attempt-marker}}
+
+        echo "Attempt #$NEXT" >&2
+
+        # Simulate flaky behavior: short report on first attempt, complete on second
+        if [ "$NEXT" -eq "1" ]; then
+          echo "First attempt - creating SHORT report (will fail validation)" >&2
+          cat > {{report-file}} << 'EOF'
+        # Short Report
+
+        This is too short.
+        EOF
+        else
+          echo "Retry attempt - creating COMPLETE report (will pass validation)" >&2
+          cat > {{report-file}} << 'EOF'
+        # Complete Report
+
+        Generated at {{datetime}}
+
+        ## Summary
+
+        This report demonstrates the command validator retry mechanism.
+
+        ## Details
+
+        The validator script checks for minimum file size of 200 bytes.
+        On the first attempt, the report was too short and validation failed.
+        On the retry attempt, a complete report was generated and passed validation.
+
+        ## Results
+
+        Retry mechanism successfully created a report that passes custom validation.
+        EOF
+        fi
+
+      validate:
+        - file-exists: "{{report-file}}"
+        - command:
+            cmd: "bash {{validator-script}} {file}"
+            file: "{{report-file}}"
+
+      retry:
+        max-attempts: 3
+        on-validation-failure: retry
+
+  - verify-retry-worked:
+      prompt: |
+        Verify the retry mechanism worked:
+
+        1. Check final attempt count:
+           ATTEMPTS=$(cat {{attempt-marker}})
+           echo "Total attempts: $ATTEMPTS"
+
+        2. Verify final report passes validation:
+           bash {{validator-script}} {{report-file}} && echo "✅ Passes custom validation"
+
+        3. Check file size:
+           SIZE=$(wc -c < {{report-file}})
+           echo "Final report size: $SIZE bytes"
+
+        4. Print success message:
+           echo "✅ Command retry mechanism worked - valid report created after $ATTEMPTS attempts"

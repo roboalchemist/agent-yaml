@@ -1,0 +1,83 @@
+# Example 25: YAML Validator with Retry
+# Demonstrates retry mechanism with yaml-valid validator
+#
+# This workflow simulates a flaky YAML generation that requires retry
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-25-{{datetime}}"
+  yaml-file: "{{output-dir}}/config.yaml"
+  attempt-marker: "{{output-dir}}/attempt-count.txt"
+
+task:
+  - setup:
+      prompt: |
+        Create directory and initialize attempt counter:
+        mkdir -p {{output-dir}}
+        echo "0" > {{attempt-marker}}
+
+  - flaky-yaml-generation:
+      prompt: |
+        This task simulates flaky YAML generation that requires retry.
+
+        Read current attempt from {{attempt-marker}}:
+        ATTEMPT=$(cat {{attempt-marker}})
+        NEXT=$((ATTEMPT + 1))
+        echo "$NEXT" > {{attempt-marker}}
+
+        echo "Attempt #$NEXT" >&2
+
+        # Simulate flaky behavior: invalid YAML on first attempt, valid on second
+        if [ "$NEXT" -eq "1" ]; then
+          echo "First attempt - creating INVALID YAML (will fail validation)" >&2
+          cat > {{yaml-file}} << 'EOF'
+        workflow: example-25
+        status: success
+        settings:
+          enabled: true
+            invalid: indentation
+          retries: 3
+        EOF
+        else
+          echo "Retry attempt - creating VALID YAML (will pass validation)" >&2
+          cat > {{yaml-file}} << 'EOF'
+        workflow: example-25
+        status: success
+        attempt: 2
+        settings:
+          enabled: true
+          retries: 3
+        message: YAML created successfully after retry
+        EOF
+        fi
+
+      validate:
+        - file-exists: "{{yaml-file}}"
+        - yaml-valid: "{{yaml-file}}"
+
+      retry:
+        max-attempts: 3
+        on-validation-failure: retry
+
+  - verify-retry-worked:
+      prompt: |
+        Verify the retry mechanism worked:
+
+        1. Check final attempt count:
+           ATTEMPTS=$(cat {{attempt-marker}})
+           echo "Total attempts: $ATTEMPTS"
+
+        2. Verify final YAML is valid:
+           python3 -c "import yaml; yaml.safe_load(open('{{yaml-file}}'))" && echo "✅ Valid YAML"
+
+        3. Check attempt number in YAML:
+           grep 'attempt: 2' {{yaml-file}} && echo "✅ Retry succeeded"
+
+        4. Print success message:
+           echo "✅ YAML retry mechanism worked - valid YAML created after $ATTEMPTS attempts"

@@ -1,0 +1,64 @@
+# Example 22: YAML Validator - Negative Test
+# Demonstrates yaml-valid validator failure with invalid YAML
+#
+# This is a NEGATIVE test - validation should FAIL (as designed)
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 120
+
+on-error: continue  # Continue workflow even when validation fails
+
+template-variables:
+  output-dir: "{{directory}}/validator-test-22-{{datetime}}"
+  yaml-file: "{{output-dir}}/invalid.yaml"
+
+task:
+  - create-directory:
+      prompt: |
+        Create directory {{output-dir}} if it doesn't exist:
+        mkdir -p {{output-dir}}
+
+  - generate-invalid-yaml:
+      prompt: |
+        Create file {{yaml-file}} with INVALID YAML (incorrect indentation):
+
+        workflow: example-22
+        timestamp: {{datetime}}
+        status: success
+        settings:
+          enabled: true
+            timeout: 60
+          retries: 3
+        features:
+        - validation
+          - retry
+        - logging
+
+        This YAML has intentional indentation errors to test the yaml-valid validator.
+        Use echo or cat to write this exact text to the file.
+
+      validate:
+        - file-exists: "{{yaml-file}}"
+        - file-not-empty: "{{yaml-file}}"
+        - yaml-valid: "{{yaml-file}}"
+
+      on-error: continue  # Task-level override
+      retry:
+        max-attempts: 1
+        on-validation-failure: retry  # Will exhaust and fall back to error_strategy
+
+  - verify-failure-detected:
+      prompt: |
+        The previous task should have failed YAML validation.
+
+        Verify that:
+        1. File {{yaml-file}} exists
+        2. File has content (not empty)
+        3. File does NOT contain valid YAML
+        4. yaml-valid validator failed
+
+        Then print: "✅ Test passed - yaml-valid validator correctly detected invalid YAML"

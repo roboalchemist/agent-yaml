@@ -1,0 +1,96 @@
+# Example: Jinja2 When Conditions for Conditional Execution
+#
+# The `when` field allows conditional task execution using Jinja2 expressions.
+# Tasks are only executed if the when expression evaluates to a truthy value.
+#
+# Features:
+# - Comparisons: ==, !=, <, >, <=, >=
+# - Boolean logic: and, or, not
+# - String operations: in, not in
+# - Works with skip-if independently (skip-if is checked first)
+#
+# Usage:
+#   agent-yaml run examples/39-when-conditions.yaml
+#   agent-yaml run examples/39-when-conditions.yaml --var environment=staging
+#   agent-yaml run examples/39-when-conditions.yaml --var force=true
+
+directory: /tmp
+cli-agent: opencode
+
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 60
+
+template-variables:
+  environment: "production"
+  tests-passed: true
+  force: false
+  deploy-type: "full"
+  # Every file this example writes goes under this directory
+  output-dir: "{{directory}}/agent-yaml-test-39"
+
+task:
+  # Simple equality check - only runs in production
+  - production-only-deploy:
+      when: "{{environment}} == 'production'"
+      prompt: |
+        Create directory {{output-dir}} if it doesn't exist.
+
+        Create a file called {{output-dir}}/production-deploy.txt with content:
+        "Production deployment triggered for environment: {{environment}}"
+
+  # Boolean AND - requires both conditions
+  - deploy-if-tests-pass:
+      when: "{{environment}} == 'production' and {{tests-passed}}"
+      prompt: |
+        Create a file called {{output-dir}}/tests-verified-deploy.txt with content:
+        "Deployment verified - tests passed: {{tests-passed}}"
+
+  # Boolean OR - force flag overrides environment check
+  - force-or-production:
+      when: "{{environment}} == 'production' or {{force}}"
+      prompt: |
+        Create a file called {{output-dir}}/force-deploy.txt with content:
+        "Deployment with force={{force}} in {{environment}}"
+
+  # Negation - skip in CI
+  - skip-in-ci:
+      when: "{{environment}} != 'ci'"
+      prompt: |
+        Create a file called {{output-dir}}/non-ci-task.txt with content:
+        "Running outside CI environment"
+
+  # Complex expression with multiple conditions
+  - complex-condition:
+      when: "{{environment}} == 'production' and {{tests-passed}} and not {{force}}"
+      prompt: |
+        Create a file called {{output-dir}}/complex-check.txt with content:
+        "All complex conditions met:
+        - environment: {{environment}}
+        - tests-passed: {{tests-passed}}
+        - force: {{force}}"
+
+  # Combining when with skip-if
+  # Both conditions are checked independently
+  # skip-if is checked first, then when
+  - combined-conditions:
+      when: "{{environment}} == 'production'"
+      skip-if:
+        file-exists: "{{output-dir}}/already-deployed.flag"
+      prompt: |
+        Create a file called {{output-dir}}/combined-deploy.txt with content:
+        "Deployed using combined conditions"
+
+  # String operations with 'in'
+  - partial-match:
+      when: "'prod' in {{environment}}"
+      prompt: |
+        Create a file called {{output-dir}}/partial-match.txt with content:
+        "Matched 'prod' in environment: {{environment}}"
+
+  # Comparison operators
+  - numeric-check:
+      when: "{{deploy-type}} == 'full'"
+      prompt: |
+        Create a file called {{output-dir}}/full-deploy.txt with content:
+        "Running full deployment type"

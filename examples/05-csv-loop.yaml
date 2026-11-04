@@ -1,0 +1,50 @@
+# Example 05: CSV Loop + Filtering
+# Tests: CSV loop, column mapping, skip-header, filtering
+
+directory: /tmp
+
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 150
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-05"
+  csv-file: "{{output-dir}}/data.csv"
+
+task:
+  - setup:
+      prompt: |
+        Create directory {{output-dir}} and file {{csv-file}} with:
+        "name,status,priority
+        module-parser,active,high
+        module-executor,active,high
+        module-adapters,active,medium
+        module-loops,testing,low"
+
+  - process-csv:
+      loop:
+        type: csv
+        source: "{{output-dir}}/data.csv"
+        skip-header: true
+        columns: [name, status, priority]
+      prompt: |
+        Processing CSV row {{loop.item.row}}: {{loop.item.name}}
+
+        Create file {{output-dir}}/csv-{{loop.item.name}}.log with:
+        "Module: {{loop.item.name}}
+        Status: {{loop.item.status}}
+        Priority: {{loop.item.priority}}
+        Row: {{loop.item.row}}
+        Index: {{loop.index}}/{{loop.total}}
+        Timestamp: {{datetime}}"
+
+  - summary:
+      prompt: |
+        Create file {{output-dir}}/csv-summary.txt with:
+        "=== CSV Loop Summary ===
+        Source: {{csv-file}}
+        Rows processed: 4
+        Header skipped: yes
+        All modules analyzed
+        Timestamp: {{datetime}}"

@@ -1,0 +1,345 @@
+name: JSON Loop - Comprehensive Feature Test
+description: |
+  Comprehensive live test of JSON loop functionality.
+  Tests: Basic iteration, nested extraction, filtering (AND/OR), primitives,
+  parallel execution, checkpoints, and error handling.
+
+directory: /tmp
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+  timeout: 600
+
+on-error: continue
+
+template-variables:
+  test-id: "json-loop-test-{{datetime}}"
+  test-dir: "{{directory}}/agent-yaml-json-test"
+  data-dir: "{{test-dir}}/data"
+  output-dir: "{{test-dir}}/output"
+  reports-dir: "{{test-dir}}/reports"
+
+includes:
+  context: "You are running a comprehensive JSON loop feature test."
+  reminder: "All output must go to {{test-dir}}"
+
+task:
+  # Phase 1: Setup Test Data (Parallel: sibling object keys run concurrently)
+  # Phases are list items, so each phase finishes before the next one starts.
+  - setup-phase:
+      create-dirs:
+        prompt: |
+          Create directory structure:
+          - {{test-dir}}
+          - {{data-dir}}
+          - {{output-dir}}
+          - {{reports-dir}}
+        include:
+          - context
+
+      create-users-json:
+        prompt: |
+          Create {{data-dir}}/users.json with:
+          [
+            {"id": 1, "name": "Alice", "role": "admin", "status": "active", "age": 30},
+            {"id": 2, "name": "Bob", "role": "user", "status": "active", "age": 25},
+            {"id": 3, "name": "Charlie", "role": "admin", "status": "inactive", "age": 35},
+            {"id": 4, "name": "Diana", "role": "guest", "status": "active", "age": 28}
+          ]
+        include:
+          - reminder
+
+      create-nested-json:
+        prompt: |
+          Create {{data-dir}}/organization.json with:
+          {
+            "company": "Acme Corp",
+            "departments": {
+              "engineering": {
+                "teams": [
+                  {"name": "Backend", "size": 5, "stack": "Python"},
+                  {"name": "Frontend", "size": 3, "stack": "React"},
+                  {"name": "DevOps", "size": 2, "stack": "Kubernetes"}
+                ]
+              }
+            }
+          }
+        include:
+          - reminder
+
+      create-primitives-json:
+        prompt: |
+          Create {{data-dir}}/tags.json with:
+          ["feature", "bugfix", "enhancement", "documentation", "testing"]
+        include:
+          - reminder
+
+      create-events-jsonl:
+        prompt: |
+          Create {{data-dir}}/events.jsonl with these lines (one JSON object per line):
+          {"timestamp": "2026-02-02T10:00:00", "event": "user_login", "user": "alice", "duration": 120}
+          {"timestamp": "2026-02-02T10:05:00", "event": "page_view", "user": "alice", "duration": 45}
+          {"timestamp": "2026-02-02T10:10:00", "event": "user_login", "user": "bob", "duration": 90}
+          {"timestamp": "2026-02-02T10:15:00", "event": "api_call", "user": "alice", "duration": 200}
+          {"timestamp": "2026-02-02T10:20:00", "event": "user_logout", "user": "alice", "duration": 5}
+        include:
+          - reminder
+
+  # Phase 2: Test Basic JSON Iteration
+  - test-basic-iteration:
+      prompt: |
+        TEST: Basic JSON array iteration
+
+        Process all users from {{data-dir}}/users.json
+        For each user, create {{output-dir}}/user-{{loop.item.id}}.txt with:
+        - ID: {{loop.item.id}}
+        - Name: {{loop.item.name}}
+        - Role: {{loop.item.role}}
+        - Status: {{loop.item.status}}
+        - Age: {{loop.item.age}}
+        - Iteration index (0-based): {{loop.index}} of {{loop.total}} items
+
+        Then create {{reports-dir}}/basic-iteration-report.txt with:
+        "✅ Basic Iteration Test Complete
+        - Processed {{loop.total}} users
+        - All user files created successfully"
+      loop:
+        type: json
+        source: "{{data-dir}}/users.json"
+      include:
+        - context
+
+  # Phase 3: Test Nested Array Extraction
+  - test-nested-extraction:
+      prompt: |
+        TEST: Nested array extraction with path
+
+        Extract teams from {{data-dir}}/organization.json using path
+        For each team, create {{output-dir}}/team-{{loop.item.name}}.txt with:
+        - Team: {{loop.item.name}}
+        - Size: {{loop.item.size}}
+        - Stack: {{loop.item.stack}}
+        - Position (0-based index): {{loop.index}} of {{loop.total}} teams
+
+        Then create {{reports-dir}}/nested-extraction-report.txt with:
+        "✅ Nested Extraction Test Complete
+        - Path used: departments.engineering.teams
+        - Extracted {{loop.total}} teams successfully"
+      loop:
+        type: json
+        source: "{{data-dir}}/organization.json"
+        path: "departments.engineering.teams"
+      include:
+        - context
+
+  # Phase 4: Test Filtering (Parallel)
+  - test-filtering:
+      test-simple-filter:
+        prompt: |
+          TEST: Simple filter (status = active)
+
+          Process only active users from {{data-dir}}/users.json
+          Create {{output-dir}}/active-users.txt listing:
+          {{loop.item.name}} ({{loop.item.role}})
+
+          Then create {{reports-dir}}/simple-filter-report.txt with:
+          "✅ Simple Filter Test Complete
+          - Filter: status = active
+          - Matched {{loop.total}} users"
+        loop:
+          type: json
+          source: "{{data-dir}}/users.json"
+          filter:
+            key: "status"
+            value: "active"
+        include:
+          - context
+
+      test-and-filter:
+        prompt: |
+          TEST: AND filter (status = active AND role = admin)
+
+          Process users matching BOTH conditions
+          Create {{output-dir}}/active-admins.txt with:
+          {{loop.item.name}} - ID: {{loop.item.id}}
+
+          Then create {{reports-dir}}/and-filter-report.txt with:
+          "✅ AND Filter Test Complete
+          - Filter: status=active AND role=admin
+          - Matched {{loop.total}} users (should be 1: Alice)"
+        loop:
+          type: json
+          source: "{{data-dir}}/users.json"
+          filter:
+            conditions:
+              - key: "status"
+                value: "active"
+              - key: "role"
+                value: "admin"
+            operator: "AND"
+        include:
+          - context
+
+      test-or-filter:
+        prompt: |
+          TEST: OR filter (role = admin OR role = guest)
+
+          Process users matching EITHER condition
+          Create {{output-dir}}/admins-or-guests.txt listing:
+          {{loop.item.name}} ({{loop.item.role}})
+
+          Then create {{reports-dir}}/or-filter-report.txt with:
+          "✅ OR Filter Test Complete
+          - Filter: role=admin OR role=guest
+          - Matched {{loop.total}} users (should be 2: Alice, Diana)"
+        loop:
+          type: json
+          source: "{{data-dir}}/users.json"
+          filter:
+            conditions:
+              - key: "role"
+                value: "admin"
+              - key: "role"
+                value: "guest"
+            operator: "OR"
+        include:
+          - context
+
+  # Phase 5: Test Primitives
+  - test-primitives:
+      prompt: |
+        TEST: Primitive array handling
+
+        Process tags from {{data-dir}}/tags.json
+        For each tag, create {{output-dir}}/tag-{{loop.index}}.txt with:
+        - Value: {{loop.item.value}}
+        - Type: {{loop.item.type}}
+        - Index: {{loop.index}}
+
+        Then create {{reports-dir}}/primitives-report.txt with:
+        "✅ Primitives Test Complete
+        - Processed {{loop.total}} primitive values
+        - All primitives wrapped correctly"
+      loop:
+        type: json
+        source: "{{data-dir}}/tags.json"
+      include:
+        - context
+
+  # Phase 6: Test JSONL Format
+  - test-jsonl-format:
+      prompt: |
+        TEST: JSONL format with filtering
+
+        Process login events from {{data-dir}}/events.jsonl
+        For each login, create {{output-dir}}/login-{{loop.item.user}}.txt with:
+        - User: {{loop.item.user}}
+        - Timestamp: {{loop.item.timestamp}}
+        - Duration: {{loop.item.duration}}s
+
+        Then create {{reports-dir}}/jsonl-report.txt with:
+        "✅ JSONL Format Test Complete
+        - Filter: event = user_login
+        - Processed {{loop.total}} login events (should be 2)"
+      loop:
+        type: jsonl
+        source: "{{data-dir}}/events.jsonl"
+        filter:
+          key: "event"
+          value: "user_login"
+      include:
+        - context
+
+  # Phase 7: Test Nested Key Filtering
+  - setup-nested-filter-data:
+      prompt: |
+        Create {{data-dir}}/products.json with:
+        [
+          {"name": "Widget", "metadata": {"category": "tools", "price": 10}},
+          {"name": "Gadget", "metadata": {"category": "electronics", "price": 20}},
+          {"name": "Hammer", "metadata": {"category": "tools", "price": 15}}
+        ]
+      include:
+        - reminder
+
+  - test-nested-filter:
+      prompt: |
+        TEST: Nested key filtering
+
+        Process product: {{loop.item.name}}
+        Append to {{output-dir}}/tools.txt:
+        "- {{loop.item.name}} (price: ${{loop.item.metadata.price}})"
+
+        After all items, create {{reports-dir}}/nested-filter-report.txt with:
+        "✅ Nested Filter Test Complete
+        - Filter: metadata.category = tools
+        - Matched {{loop.total}} products (should be 2: Widget, Hammer)"
+      loop:
+        type: json
+        source: "{{data-dir}}/products.json"
+        filter:
+          key: "metadata.category"
+          value: "tools"
+      include:
+        - context
+
+  # Phase 8: Final Validation
+  - validate-results:
+      prompt: |
+        TEST: Validate all outputs
+
+        Create comprehensive validation report at {{test-dir}}/TEST-RESULTS.txt:
+
+        "=== JSON LOOP COMPREHENSIVE TEST RESULTS ===
+
+        Test ID: {{test-id}}
+        Timestamp: {{datetime}}
+        Working Directory: {{directory}}
+
+        PHASES COMPLETED:
+        ✅ Phase 1: Setup (5 tasks in parallel)
+        ✅ Phase 2: Basic JSON Iteration (4 users)
+        ✅ Phase 3: Nested Array Extraction (3 teams)
+        ✅ Phase 4: Filtering Tests (3 parallel tests)
+        ✅ Phase 5: Primitives Handling (5 tags)
+        ✅ Phase 6: JSONL Format (2 login events)
+        ✅ Phase 7: Nested Key Filtering Setup + Processing (2 tools)
+        ✅ Phase 8: Validation
+
+        FEATURES TESTED:
+        ✅ JSON array iteration (objects)
+        ✅ Nested path extraction (dot notation)
+        ✅ Simple filtering (single condition)
+        ✅ Multi-condition filtering (AND operator)
+        ✅ Multi-condition filtering (OR operator)
+        ✅ Nested key filtering (metadata.category)
+        ✅ Primitive array handling (strings)
+        ✅ JSONL format processing
+        ✅ Parallel execution (3 filter tests)
+        ✅ Template variable interpolation
+
+        VALIDATION CHECKS:
+        1. Check {{output-dir}} contains 4 user files
+        2. Check {{output-dir}} contains 3 team files
+        3. Check {{output-dir}} contains 5 tag files
+        4. Check {{output-dir}} contains 2 login files
+        5. Check {{output-dir}} contains 2 tools files
+        6. Check {{reports-dir}} contains 7 report files
+
+        Count files in output directory:
+        $(ls -1 {{output-dir}} | wc -l)
+
+        Count files in reports directory:
+        $(ls -1 {{reports-dir}} | wc -l)
+
+        OUTPUT STRUCTURE:
+        {{test-dir}}/
+        ├── data/                  (source JSON/JSONL files)
+        ├── output/                (per-item output files)
+        ├── reports/               (test phase reports)
+        └── TEST-RESULTS.txt       (final validation)
+
+        ALL JSON LOOP FEATURES VALIDATED SUCCESSFULLY! ✅"
+      include:
+        - context
+        - reminder
