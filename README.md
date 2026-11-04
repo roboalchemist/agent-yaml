@@ -99,7 +99,7 @@ Run it, then rerun the same command after an interruption. Finished items are sk
 
 ## Primitives
 
-A workflow is built from a fixed vocabulary. The forms are the same on every adapter; only the
+A workflow is built from a fixed vocabulary. The forms are the same on every adapter, and only the
 CLI-specific options change.
 
 **Workflow fields**
@@ -108,47 +108,86 @@ CLI-specific options change.
 |-------|------|-------|
 | `directory` | string | Required. Working directory for every task |
 | `cli-agent` | string | `opencode`, `claude`, `gemini`, `qwen`, `codex` (default `claude`) |
-| `cli-agent-config` | map | `model`, `timeout`, `skip-confirmations`, `additional-dirs`, `mcp-config-file`, `raw-args`, … |
 | `environment` | map | Env vars inherited by every task |
 | `template-variables` | map | User variables, resolved in dependency order |
 | `includes` | map | Reusable prompt fragments, inline or from a file |
 | `ensure` | map | Pre-flight `tools` and `mcps` checks |
 | `task` | list | The task tree (required) |
 
+`cli-agent-config` holds adapter options: `model`, `timeout`, `skip-confirmations`,
+`additional-dirs`, `mcp-config-file`, `raw-args`, and the per-adapter equivalents.
+
 **Task fields**
 
-`prompt`, `task`, `include`, `loop`, `validate`, `retry`, `skip-if`, `when`, `env`, `directory`,
-`cli-agent-config`, `on-error`.
-
-A list runs in order. A mapping runs its keys concurrently in a `ThreadPoolExecutor`.
+| Field | Type | Notes |
+|-------|------|-------|
+| `prompt` | string | Text sent to the agent CLI |
+| `task` | list or map | Nested tasks: a list runs in order, a map runs its keys concurrently |
+| `include` | list | Names of top-level includes appended to the prompt |
+| `loop` | map | Runs the task once per item |
+| `validate` | list | Validators checked after the task exits 0 |
+| `retry` | map | `max-attempts`, `on-validation-failure` (`retry`, `fail`, `skip`) |
+| `skip-if` | map | `file-exists` or `file-contains`, evaluated before the task |
+| `when` | string | Expression gate. An empty string skips the task |
+| `env` | map | Task-level environment variables |
+| `directory` | string | Task working directory, relative to the workflow `directory` |
+| `cli-agent-config` | map | Per-task adapter options |
+| `on-error` | string | `fail`, `continue`, `skip` |
 
 **Loops**
 
-| Type | Source |
-|------|--------|
-| `todo-list` | markdown checkboxes |
-| `csv` | CSV file |
-| `json` | JSON array |
-| `jsonl` | one JSON object per line |
-| `glob` | file pattern |
+| `type` | Iterates over | Required |
+|--------|---------------|----------|
+| `todo-list` | pending `- [ ]` items in a markdown file | `source` |
+| `csv` | rows of a CSV | `source` |
+| `json` | array in a JSON file, optionally nested | `source` |
+| `jsonl` | one JSON object per line | `source` |
+| `glob` | files matching a pattern | `pattern` |
 
-All loops take `checkpoint-file`, `resume`, and a `retry` block (`max-attempts`, `on-failure`:
-`skip`, `retry`, `abort`). `workers` parallelizes `csv`, `json`, and `jsonl` items; `todo-list` and
-`glob` run in order.
+All loops share these options:
+
+| Option | Notes |
+|--------|-------|
+| `checkpoint-file` | JSON progress file, template variables expanded |
+| `resume` | Continue after the last completed item |
+| `retry` | `{max-attempts, on-failure}` with `skip`, `retry`, or `abort` |
+| `workers` | Items run concurrently. Applies to `csv`, `json`, and `jsonl` only |
+| `directory-pool` | Existing directories assigned round-robin to workers |
+| `git-worktrees` | One worktree per worker: `base`, `branch-field`, `name-template`, `cleanup` |
+
+Type-specific filters: `columns` and `filter` for `csv`, `path` and `filter` for `json`.
 
 **Validators**
 
-`file-exists`, `file-not-empty`, `contains`, `json-valid`, `yaml-valid`, `command`.
+| Validator | Config | Passes when |
+|-----------|--------|-------------|
+| `file-exists` | string path | The path exists |
+| `file-not-empty` | string path | The path exists and is not empty |
+| `contains` | `{file, text}` | The file contains the text |
+| `json-valid` | string path | The file parses as JSON |
+| `yaml-valid` | string path | The file parses as YAML |
+| `command` | `{cmd, file?, timeout?}` | The command exits 0 |
 
-Validators run after a task exits 0. A failure can retry the task (`retry.on-validation-failure`:
-`retry`, `fail`, `skip`).
+Validators run after a task exits 0. A failure follows `retry.on-validation-failure`.
 
 **Variables**
 
-Reserved: `{{directory}}`, `{{gitroot}}`, `{{datetime}}`, `{{user}}`, `{{env.NAME}}`. User variables
-come from `template-variables` and are overridden with `--var key=value`. Loop items add
-`{{loop.index}}`, `{{loop.total}}`, `{{loop.item}}`, `{{loop.worker.id}}` and
-`{{loop.worker.directory}}`.
+| Variable | Value |
+|----------|-------|
+| `{{directory}}` | Absolute workflow directory |
+| `{{gitroot}}` | Nearest ancestor with `.git/`, else `{{directory}}` |
+| `{{datetime}}` | ISO-8601 timestamp, fixed for the run |
+| `{{user}}` | `USER`, `USERNAME`, or `LOGNAME`, else `unknown` |
+| `{{env.NAME}}` | Environment variable from the merged environment |
+| `{{loop.index}}` | 0-based item index |
+| `{{loop.total}}` | Number of items |
+| `{{loop.remaining}}` | Items left |
+| `{{loop.item}}` | Current item. Fields depend on the loop type |
+| `{{loop.worker.id}}` | Worker id for parallel loops |
+| `{{loop.worker.directory}}` | Worker directory with `directory-pool` or `git-worktrees` |
+
+User variables are defined in `template-variables` and can reference each other. `--var key=value`
+overrides them, and `{{env.NAME}}` reads the merged environment.
 
 ## How a run works
 
