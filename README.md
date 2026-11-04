@@ -99,8 +99,8 @@ Run it, then rerun the same command after an interruption. Finished items are sk
 
 ## Primitives
 
-A workflow is built from a fixed vocabulary. The forms are the same on every adapter; only the CLI-
-specific options change.
+A workflow is built from a fixed vocabulary. The forms are the same on every adapter; only the
+CLI-specific options change.
 
 **Workflow fields**
 
