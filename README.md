@@ -20,12 +20,11 @@ a working directory, prompts, loop sources, validators, templates, checkpoints.
 agent-yaml keeps those in the file and lets the adapter translate the rest. A workflow that sticks to
 shared options moves between CLIs by changing `cli-agent`.
 
-Each step is one subprocess call. You bring the CLI you already use, with no vendor SDK or plugin
-system in between, and the only contract between steps is files on disk.
+Each step is one subprocess call. The only contract between steps is files on disk.
 
 Model output stays opaque and is never parsed. Steps succeed by writing files that validators check,
 so a run that reports success without producing the file still fails. `--dry-run` prints the exact
-argv for every task and calls no model, so you can review the plan before it costs tokens.
+argv for every task and calls no model.
 
 ## Install
 
@@ -111,7 +110,7 @@ Run it, then rerun the same command after an interruption. Finished items are sk
    concurrently in a `ThreadPoolExecutor`, and each task is one `subprocess.run` with a timeout.
 6. **Validate output**, then run the loop's next item or checkpoint its progress.
 
-## Watch it run
+## Visual runner
 
 `agent-yaml serve` starts a local console for browsing, running, and watching workflows:
 
