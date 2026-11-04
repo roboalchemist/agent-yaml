@@ -6,10 +6,10 @@ through OpenCode, Claude Code, Gemini, Qwen, or Codex — the YAML does not chan
 Each task is one subprocess invocation of the agent CLI. Tasks communicate through the filesystem,
 which keeps runs debuggable, resumable, and independent of any single model or provider.
 
-```
-parser → schema validation → includes → variable resolution → executor → adapter → agent CLI
-                                                                  ↓
-                                                    loops · validators · skip-if/when · checkpoints
+```mermaid
+flowchart LR
+    parser --> schema["schema validation"] --> includes --> variables["variable resolution"] --> executor --> adapter --> cli["agent CLI"]
+    executor -.-> features["loops · validators<br/>skip-if/when · checkpoints"]
 ```
 
 ## Contents
