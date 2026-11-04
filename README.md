@@ -1,12 +1,12 @@
 # agent-yaml
 
-One YAML file describes a multi-step job. Run it through OpenCode, Claude Code, Gemini, Qwen, or
-Codex without editing the file.
+Define repeatable workflows once, in YAML, and run them through OpenCode, Claude Code, Gemini, Qwen,
+or Codex. The workflow is built from shared primitives (loops, validators, variables, includes,
+checkpoints) and does not depend on any one harness.
 
-Most agent scripting is a prompt that says "now do the next thing". It has no retries, no progress
-file, and no way to tell whether the last step wrote anything. agent-yaml makes that a program: each
-step is one subprocess call to an agent CLI, steps hand each other files, and a validator decides
-whether the step did its job.
+A prompt you retype is a one-off. A YAML file with a task tree, a loop source, a validation rule and
+a checkpoint is a job you can rerun, review, hand to a teammate, and point at a different agent CLI
+without rewriting it.
 
 ```mermaid
 flowchart LR
@@ -16,12 +16,18 @@ flowchart LR
 
 ## Why it exists
 
-- **The model's prose is not an API.** agent-yaml never parses agent output. Steps succeed by
-  writing files that validators can check, so a run that "looks done" fails loudly when it isn't.
-- **Five CLIs, one workflow.** Adapters translate the same config keys into each CLI's flags. Swap
-  `cli-agent: opencode` for `claude`, `gemini`, `qwen`, or `codex` and the workflow is unchanged.
-- **Long jobs need checkpoints.** CSV, JSON, JSONL, glob, and todo-list loops record what finished,
-  so rerunning a 400-item job resumes instead of repeating paid work.
+- **Repeatable work should be a file, not a ritual.** The workflow file is the run definition: same
+  task tree, same loop sources, same validators, every time. Rerunning it is the normal case, not a
+  re-derivation from chat history.
+- **Shared primitives across agents.** Loops, validators, template variables, includes, `ensure` and
+  checkpoints mean the same thing whether the task runs under OpenCode, Claude Code, Gemini, Qwen or
+  Codex. Adapters translate config keys into each CLI's flags, so switching agents does not change
+  the workflow.
+- **No harness lock-in.** You bring the agent CLI you already use. agent-yaml does not wrap a vendor
+  SDK or require a specific plugin system. Each step is one subprocess call, and the only contract
+  between steps is files on disk.
+- **The model's prose is not an API.** agent-yaml never parses agent output. Steps succeed by writing
+  files that validators can check, so a run that "looks done" fails loudly when it isn't.
 - **You can see the command before it costs anything.** `--dry-run` prints the exact argv for every
   task and calls no model.
 
