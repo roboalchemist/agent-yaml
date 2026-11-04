@@ -5,12 +5,6 @@ Write out your workflows in yaml and then run them under a harness of your choic
 The yaml contains the prompts, where each loop gets its items, and the checks a step has to pass
 before the next one starts. Run it again next month in the latest harness/model of the day and run the same workflow. 
 
-```mermaid
-flowchart LR
-    parser --> schema["schema validation"] --> includes --> variables["variable resolution"] --> executor --> adapter --> cli["agent CLI"]
-    executor -.-> features["loops · validators<br/>skip-if/when · checkpoints"]
-```
-
 ## Why it exists
 
 Every agent CLI names its flags differently. What a workflow needs is the same across all of them:
