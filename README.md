@@ -1,10 +1,9 @@
 # agent-yaml
 
-One YAML file, five agent CLIs. Write the steps once and run them under OpenCode, Claude Code,
-Gemini, Qwen, or Codex.
+Write out your workflows in yaml and then run them under a harness of your choice.
 
-The file carries the prompts, where each loop gets its items, and the checks a step has to pass
-before the next one starts. Run it again next month and the same commands execute.
+The yaml contains the prompts, where each loop gets its items, and the checks a step has to pass
+before the next one starts. Run it again next month in the latest harness/model of the day and run the same workflow. 
 
 ```mermaid
 flowchart LR
