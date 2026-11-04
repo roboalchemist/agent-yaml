@@ -1,11 +1,10 @@
 # agent-yaml
 
-Define a workflow once in YAML and run it through OpenCode, Claude Code, Gemini, Qwen, or Codex. The
-workflow is built from shared primitives (loops, validators, variables, includes, checkpoints) and
-is independent of any single harness.
+One YAML file, five agent CLIs. Write the steps once and run them under OpenCode, Claude Code,
+Gemini, Qwen, or Codex.
 
-A prompt you retype is a one-off. A YAML file is a job you can rerun, review, hand to a teammate, and
-point at a different agent CLI without rewriting it.
+The file carries the prompts, where each loop gets its items, and the checks a step has to pass
+before the next one starts. Run it again next month and the same commands execute.
 
 ```mermaid
 flowchart LR
@@ -15,12 +14,11 @@ flowchart LR
 
 ## Why it exists
 
-The workflow file is the run definition: same task tree, same loop sources, same validators, every
-time you run it. Nothing depends on remembered context.
+Every agent CLI names its flags differently. What a workflow needs is the same across all of them:
+a working directory, prompts, loop sources, validators, templates, checkpoints.
 
-Loops, validators, template variables, includes, `ensure` and checkpoints behave the same way under
-OpenCode, Claude Code, Gemini, Qwen and Codex. Adapters translate config keys into each CLI's flags,
-so moving a workflow to another agent does not mean rewriting it.
+agent-yaml keeps those in the file and lets the adapter translate the rest. A workflow that sticks to
+shared options moves between CLIs by changing `cli-agent`.
 
 Each step is one subprocess call. You bring the CLI you already use, with no vendor SDK or plugin
 system in between, and the only contract between steps is files on disk.
