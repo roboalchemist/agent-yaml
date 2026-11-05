@@ -389,10 +389,10 @@ task:
 
     <section id="code">
       <h2>Where it lives</h2>
-      <p><code>execute_task_tree</code> in <code>src/cli.py</code> is the interpreter. It branches on three cases: a list
+      <p><code>execute_task_tree</code> in <code>agent_yaml/cli.py</code> is the interpreter. It branches on three cases: a list
          runs in order, a dict with <code>loop</code> is a loop leaf, a dict with <code>prompt</code> is a leaf, and
          anything else is a parallel group.</p>
-      <p><code>src/validator.py</code> enforces the shapes above before anything runs. <code>src/graph.py</code> projects
+      <p><code>agent_yaml/validator.py</code> enforces the shapes above before anything runs. <code>agent_yaml/graph.py</code> projects
          the same tree into the node graph used by <code>agent-yaml serve</code>, so the picture in the visual runner is
          the tree you wrote.</p>
     </section>

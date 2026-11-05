@@ -431,27 +431,27 @@
       <div class="grid2">
         <div class="card">
           <h3>Schema and fields</h3>
-          <p><code>src/validator.py</code> enforces required fields, task shape, loop and validator config, and adapter option names.</p>
+          <p><code>agent_yaml/validator.py</code> enforces required fields, task shape, loop and validator config, and adapter option names.</p>
         </div>
         <div class="card">
           <h3>Loops and checkpoints</h3>
-          <p><code>src/loops.py</code> implements the five types, workers, directory pools, worktrees, and checkpoint files.</p>
+          <p><code>agent_yaml/loops.py</code> implements the five types, workers, directory pools, worktrees, and checkpoint files.</p>
         </div>
         <div class="card">
           <h3>Validators</h3>
-          <p><code>src/task_validators.py</code> implements the six checks and the command runner.</p>
+          <p><code>agent_yaml/task_validators.py</code> implements the six checks and the command runner.</p>
         </div>
         <div class="card">
           <h3>Variables and includes</h3>
-          <p><code>src/variables.py</code>, <code>src/utils.py</code>, and <code>src/includes.py</code> handle interpolation and fragment resolution.</p>
+          <p><code>agent_yaml/variables.py</code>, <code>agent_yaml/utils.py</code>, and <code>agent_yaml/includes.py</code> handle interpolation and fragment resolution.</p>
         </div>
         <div class="card">
           <h3>Execution</h3>
-          <p><code>src/executor.py</code> and <code>src/cli.py</code> walk the task tree and call the adapter.</p>
+          <p><code>agent_yaml/executor.py</code> and <code>agent_yaml/cli.py</code> walk the task tree and call the adapter.</p>
         </div>
         <div class="card">
           <h3>Adapter translation</h3>
-          <p><code>src/adapters/</code> maps config keys to each CLI's flags.</p>
+          <p><code>agent_yaml/adapters/</code> maps config keys to each CLI's flags.</p>
         </div>
       </div>
     </section>

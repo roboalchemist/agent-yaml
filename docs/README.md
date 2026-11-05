@@ -10,6 +10,9 @@ authoritative field-by-field specification remains [`spec/`](../spec).
 |-----------------|------|
 | Write your first workflow | [AUTHORING.md](AUTHORING.md) |
 | Look up a flag or exit code | [CLI.md](CLI.md) |
+| Read the unified documentation page | [index.html](index.html) |
+| See every primitive in one page | [explainers/primitives.html](explainers/primitives.html) |
+| Understand task ordering and parallelism | [explainers/task-tree.html](explainers/task-tree.html) |
 | Understand `{{variables}}`, Jinja2, and `when` | [TEMPLATING.md](TEMPLATING.md) |
 | Iterate over CSV, JSON, files, or checkboxes | [LOOPS.md](LOOPS.md) then [PARALLEL_LOOPS.md](PARALLEL_LOOPS.md) |
 | Verify what a task produced | [VALIDATORS.md](VALIDATORS.md) |
