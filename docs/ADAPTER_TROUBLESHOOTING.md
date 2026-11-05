@@ -72,7 +72,7 @@ Requires OpenCode v2.x (`--standalone`/`--auto` do not exist in v1).
 | `tools` (list or string) | `--tools read,bash` |
 | `no-tools` / `exclude-tools` | `--no-tools` / `--exclude-tools name,name` |
 | `output-format: json` or `rpc` | `--mode json` / `--mode rpc`; `text` is the default |
-| `session-id` | `--session ID` |
+| `session-id` | `--session-id ID` (creates the session when it does not exist) |
 | `continue: true` | `--continue` (session-id wins) |
 | *(default when no session)* | `--no-session`, so each task is ephemeral |
 | `session: true` | keep persistence instead of `--no-session` |
@@ -111,6 +111,21 @@ cli-agent-config:
 
 `apiKey` accepts an environment variable name, a `!command` that prints the key, or a literal value.
 `--provider gateway --model vendor/model-name` is the same selection written as two flags.
+
+Every option above is validated at parse time. Unknown keys, wrong types, and values pi would reject
+(an unsupported `thinking` level or `output-format`) fail `agent-yaml validate` with the allowed
+list, before any model call. `session-id` maps to `--session-id`, which creates the session when it
+does not exist, unlike pi's `--session`, which fails with "No session found matching".
+
+To re-check the mapping against live inference across every option, run the matrix:
+
+```bash
+PI_VALIDATION_MODEL=provider/model python scripts/validate_pi_params.py
+```
+
+It exercises each option (with behavior checks for tool allowlists, sessions, and the JSON output
+mode), prints a pass/fail line per case, and fails when an option the validator accepts is missing
+from the matrix.
 
 ### Claude
 

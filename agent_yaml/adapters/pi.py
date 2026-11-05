@@ -10,7 +10,7 @@ Maps generic configurations onto pi's flags:
 - no-tools: true → --no-tools
 - exclude-tools: ["write"] → --exclude-tools write
 - output-format: "json" → --mode json ("text" is the default, "rpc" is passed through)
-- session-id: "abc123" → --session abc123
+- session-id: "abc123" → --session-id abc123 (create or reuse)
 - continue: true → --continue (session-id wins when both are set)
 - session: true → keep session persistence (the default here is --no-session)
 - title: "Nightly docs" → --name "Nightly docs"
@@ -117,7 +117,9 @@ class PiAdapter(BaseAdapter):
         # 9. session handling: session-id, else continue, else ephemeral by default
         session_id = task_config.get("session-id")
         if session_id:
-            cmd.extend(["--session", session_id])
+            # --session-id creates the session when it does not exist, unlike --session,
+            # which fails with "No session found matching".
+            cmd.extend(["--session-id", session_id])
         elif task_config.get("continue"):
             cmd.append("--continue")
         elif not task_config.get("session"):

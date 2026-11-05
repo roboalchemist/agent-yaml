@@ -384,7 +384,7 @@ JSON_OUTPUT_FLAGS = [
 SESSION_ID_FLAGS = [
     pytest.param(ClaudeAdapter, "--session-id", id="claude"),
     pytest.param(OpenCodeAdapter, "--session", id="opencode"),
-    pytest.param(PiAdapter, "--session", id="pi"),
+    pytest.param(PiAdapter, "--session-id", id="pi"),
 ]
 
 PERMISSION_FLAGS = [
@@ -956,7 +956,7 @@ class TestPiAdapter:
     def test_session_id_wins_over_continue_and_no_session(self):
         cmd = build(PiAdapter, {"session-id": "abc123", "continue": True})
 
-        assert has_tokens(cmd, "--session", "abc123")
+        assert has_tokens(cmd, "--session-id", "abc123")
         assert "--continue" not in cmd
         assert "--no-session" not in cmd
 

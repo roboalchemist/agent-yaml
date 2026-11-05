@@ -35,6 +35,95 @@ class SchemaValidator:
     VALID_CLI_AGENTS = ["opencode", "claude", "gemini", "qwen", "codex", "pi"]
     VALID_ON_ERROR_VALUES = ["fail", "continue", "skip"]
 
+    # pi adapter options. Anything not listed here is rejected, so a typo or a
+    # config key copied from another adapter fails at validate time instead of
+    # producing a command pi rejects at run time.
+    _agent = "claude"
+    PI_THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
+    PI_OUTPUT_FORMATS = ["text", "json", "rpc"]
+    PI_OPTION_SPEC = {
+        "model": "string",
+        "provider": "string",
+        "thinking": "string",
+        "title": "string",
+        "session-id": "string",
+        "output-format": "string",
+        "tools": "string or list of strings",
+        "exclude-tools": "string or list of strings",
+        "skip-confirmations": "boolean",
+        "no-tools": "boolean",
+        "continue": "boolean",
+        "session": "boolean",
+        "debug": "boolean",
+        "no-extensions": "boolean",
+        "timeout": "positive number",
+        "raw-args": "list of strings",
+        "additional-dirs": "list (ignored by pi)",
+        "mcp-servers": "list (ignored by pi)",
+        "mcp-config-file": "string (ignored by pi)",
+    }
+
+    def _validate_pi_config(self, config, where="cli-agent-config"):
+        """Validate pi adapter options: known keys, types, and enumerated values."""
+
+        def fail(message):
+            raise ValidationError(
+                "{}\n\nContext: {}\nAllowed options: {}".format(
+                    message, where, ", ".join(sorted(self.PI_OPTION_SPEC))
+                )
+            )
+
+        for key in config:
+            if key not in self.PI_OPTION_SPEC:
+                fail("Unknown pi option '{}'".format(key))
+
+        for key in ("model", "provider", "thinking", "title", "session-id",
+                    "output-format", "mcp-config-file"):
+            if key in config and not isinstance(config[key], str):
+                fail("pi option '{}' must be a string, got {}".format(
+                    key, type(config[key]).__name__))
+
+        for key in ("skip-confirmations", "no-tools", "continue", "session",
+                    "debug", "no-extensions"):
+            if key in config and not isinstance(config[key], bool):
+                fail("pi option '{}' must be a boolean, got {}".format(
+                    key, type(config[key]).__name__))
+
+        if "timeout" in config:
+            value = config["timeout"]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+                fail("pi option 'timeout' must be a positive number, got {!r}".format(value))
+
+        for key in ("raw-args", "additional-dirs", "mcp-servers"):
+            if key in config:
+                value = config[key]
+                if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+                    fail("pi option '{}' must be a list of strings, got {!r}".format(key, value))
+
+        for key in ("tools", "exclude-tools"):
+            if key in config:
+                value = config[key]
+                if isinstance(value, str):
+                    if not value.strip():
+                        fail("pi option '{}' must not be empty".format(key))
+                elif isinstance(value, list):
+                    if not all(isinstance(v, str) and v.strip() for v in value):
+                        fail("pi option '{}' list entries must be non-empty strings".format(key))
+                else:
+                    fail("pi option '{}' must be a string or list of strings, got {}".format(
+                        key, type(value).__name__))
+
+        if "thinking" in config and config["thinking"] not in self.PI_THINKING_LEVELS:
+            fail("pi option 'thinking' must be one of {}, got '{}'".format(
+                self.PI_THINKING_LEVELS, config["thinking"]))
+
+        if "output-format" in config and config["output-format"] not in self.PI_OUTPUT_FORMATS:
+            fail("pi option 'output-format' must be one of {}, got '{}'".format(
+                self.PI_OUTPUT_FORMATS, config["output-format"]))
+
+        if "session-id" in config and not config["session-id"].strip():
+            fail("pi option 'session-id' must not be empty")
+
     def validate_schema(self, workflow_dict):
         """
         Validate a parsed workflow against the schema.
@@ -105,6 +194,12 @@ class SchemaValidator:
                         type(workflow_dict["cli-agent-config"]).__name__
                     )
                 )
+
+        # Adapter-specific option validation. pi options are enumerated, so an
+        # option copied from another adapter fails here rather than at run time.
+        self._agent = workflow_dict.get("cli-agent", "claude")
+        if self._agent == "pi" and isinstance(workflow_dict.get("cli-agent-config"), dict):
+            self._validate_pi_config(workflow_dict["cli-agent-config"])
 
         # Validate optional field: on-error
         if "on-error" in workflow_dict:
@@ -217,6 +312,12 @@ class SchemaValidator:
                     raise ValidationError(
                         f"Task definition for '{task_name}' at {path}[{index}] must be a dict, "
                         f"got {type(task_def).__name__}"
+                    )
+
+                if self._agent == "pi" and isinstance(task_def.get("cli-agent-config"), dict):
+                    self._validate_pi_config(
+                        task_def["cli-agent-config"],
+                        "cli-agent-config for task '{}' at {}[{}]".format(task_name, path, index),
                     )
 
                 # Check if task has prompt
