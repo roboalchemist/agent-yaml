@@ -34,3 +34,7 @@ ruff check agent_yaml tests
 
 Open an issue with the workflow YAML (redacted), the command you ran, and the output of
 `agent-yaml validate <workflow>`.
+
+## Releasing
+
+See [RELEASING.md](RELEASING.md) for the tag and PyPI flow.
