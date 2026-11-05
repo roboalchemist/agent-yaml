@@ -129,19 +129,21 @@
   <header class="top">
     <p class="kicker">agent-yaml</p>
     <h1>Documentation</h1>
-    <p>Key concepts and how to implement them. Every example on this page validates with
-       <code>agent-yaml validate</code>.</p>
+    <p>What it is, why it exists, and how to implement each part. Every example on this page
+       validates with <code>agent-yaml validate</code>.</p>
   </header>
 
   <nav>
     <div class="group">Getting started</div>
     <ol>
-      <li><a href="#overview">Overview</a></li>
+      <li><a href="#what">What it is</a></li>
+      <li><a href="#why">Why it exists</a></li>
+      <li><a href="#run">How a run works</a></li>
       <li><a href="#install">Install and first run</a></li>
       <li><a href="#workflow-file">The workflow file</a></li>
     </ol>
     <div class="group">Concepts</div>
-    <ol start="4">
+    <ol start="6">
       <li><a href="#task-tree">Task tree</a></li>
       <li><a href="#variables">Variables</a></li>
       <li><a href="#includes">Includes</a></li>
@@ -151,14 +153,14 @@
       <li><a href="#errors">Errors and retries</a></li>
     </ol>
     <div class="group">Running</div>
-    <ol start="11">
+    <ol start="13">
       <li><a href="#adapters">Adapters</a></li>
       <li><a href="#cli">Command line</a></li>
       <li><a href="#runner">Visual runner</a></li>
       <li><a href="#debugging">Debugging</a></li>
     </ol>
     <div class="group">Reference</div>
-    <ol start="15">
+    <ol start="17">
       <li><a href="#limits">Limits and gotchas</a></li>
       <li><a href="#next">Deep dives</a></li>
     </ol>
@@ -166,10 +168,38 @@
 
   <main>
 
-    <section id="overview">
-      <h2><span class="num">1</span>Overview</h2>
-      <p>A workflow is one YAML file. Each task in it becomes one subprocess call to an agent CLI. Steps
-         hand each other files, and validators decide whether a step actually produced what it claimed.</p>
+    <section id="what">
+      <h2><span class="num">1</span>What it is</h2>
+      <p>Write out your workflows in yaml and then run them under a harness of your choice.</p>
+      <p>A workflow is one YAML file. Each task in it becomes one subprocess call to an agent CLI, steps
+         hand each other files, and validators decide whether a step produced what it claimed.</p>
+    </section>
+
+    <section id="why">
+      <h2><span class="num">2</span>Why it exists</h2>
+      <p>Each model and framework provider is trying to provide a way to interact with their harness,
+         without providing what is usually needed: a definable, repeatable flow-chart style workflow to
+         accomplish some repeated task.</p>
+      <p>The yaml contains the prompts, where each loop gets its items, and the checks a step has to pass
+         before the next one starts. Run it again next month in the latest harness/model of the day and
+         run the same workflow.</p>
+      <p>agent-yaml lets one define their workflows irregardless of the harness or model of the day, by
+         breaking down what most boring workflows tend to be (or could most easily be) comprised of:</p>
+      <ul>
+        <li>a working directory</li>
+        <li>prompts made with templates</li>
+        <li>looping over something</li>
+        <li>validating checks</li>
+        <li>composable templating of the above</li>
+      </ul>
+      <p>Each step is one subprocess call, with contracts between steps being files on the disk.</p>
+      <p>Model output stays opaque and is never parsed. If you want to parse it, write it to a file and
+         parse that. Validators run against written files to form checkpoints.</p>
+    </section>
+
+    <section id="run">
+      <h2><span class="num">3</span>How a run works</h2>
+      <p>One file is parsed, validated, and expanded. Then each task becomes a subprocess call.</p>
       <div class="pipeline">
         <span class="node">parser</span><span class="arrow">→</span>
         <span class="node">schema validation</span><span class="arrow">→</span>
@@ -181,12 +211,10 @@
       </div>
       <p>Loops, validators, <code>skip-if</code>, <code>when</code>, and checkpoints act on tasks around that
          subprocess. The shape of the task tree decides what runs in order and what runs at the same time.</p>
-      <p class="lead">The practical effect: the same file runs under OpenCode, Claude Code, Gemini, Qwen, or Codex.
-         You change <code>cli-agent</code>, and the steps stay the same.</p>
     </section>
 
     <section id="install">
-      <h2><span class="num">2</span>Install and first run</h2>
+      <h2><span class="num">4</span>Install and first run</h2>
       <p>Install from the repository. There is no PyPI release yet. You need Python 3.8 or newer and at
          least one agent CLI on <code>PATH</code>.</p>
       <pre><code>pip install "git+https://github.com/roboalchemist/agent-yaml.git"
@@ -210,7 +238,7 @@ agent-yaml run hello.yaml             # call the agent</code></pre>
     </section>
 
     <section id="workflow-file">
-      <h2><span class="num">3</span>The workflow file</h2>
+      <h2><span class="num">5</span>The workflow file</h2>
       <p>Nine top-level fields. Only two are required.</p>
       <div class="table-wrap">
         <table>
@@ -233,7 +261,7 @@ agent-yaml run hello.yaml             # call the agent</code></pre>
     </section>
 
     <section id="task-tree">
-      <h2><span class="num">4</span>Task tree</h2>
+      <h2><span class="num">6</span>Task tree</h2>
       <p>A list runs in order. A mapping runs its keys concurrently. The two nest freely.</p>
       <pre><code class="yaml full">directory: /tmp/docs-example
 cli-agent: opencode
@@ -263,7 +291,7 @@ task:
     </section>
 
     <section id="variables">
-      <h2><span class="num">5</span>Variables</h2>
+      <h2><span class="num">7</span>Variables</h2>
       <p>Five variables are injected for you.</p>
       <div class="table-wrap">
         <table>
@@ -296,7 +324,7 @@ task:
     </section>
 
     <section id="includes">
-      <h2><span class="num">6</span>Includes</h2>
+      <h2><span class="num">8</span>Includes</h2>
       <p>Includes are prompt fragments you reuse across tasks. A name defined under <code>includes:</code> is
          inline text. Any other string is a file path, and a missing file is an error.</p>
       <pre><code class="yaml full">directory: /tmp/docs-example
@@ -315,7 +343,7 @@ task:
     </section>
 
     <section id="loops">
-      <h2><span class="num">7</span>Loops</h2>
+      <h2><span class="num">9</span>Loops</h2>
       <p>A loop turns one task into one task per item. Five sources.</p>
       <div class="table-wrap">
         <table>
@@ -360,7 +388,7 @@ task:
     </section>
 
     <section id="validators">
-      <h2><span class="num">8</span>Validators</h2>
+      <h2><span class="num">10</span>Validators</h2>
       <p>A validator runs after the task exits 0 and inspects what it produced. This is the difference between
          an agent saying it finished and the file existing.</p>
       <div class="table-wrap">
@@ -396,7 +424,7 @@ task:
     </section>
 
     <section id="conditionals">
-      <h2><span class="num">9</span>Conditionals</h2>
+      <h2><span class="num">11</span>Conditionals</h2>
       <p><code>skip-if</code> is an idempotency check that runs before the task. <code>when</code> is an
          expression gate. Skip-if is evaluated first.</p>
       <pre><code class="yaml full">directory: /tmp/docs-example
@@ -423,7 +451,7 @@ task:
     </section>
 
     <section id="errors">
-      <h2><span class="num">10</span>Errors and retries</h2>
+      <h2><span class="num">12</span>Errors and retries</h2>
       <p>Three levels, each with its own setting.</p>
       <div class="table-wrap">
         <table>
@@ -452,7 +480,7 @@ task:
     </section>
 
     <section id="adapters">
-      <h2><span class="num">11</span>Adapters</h2>
+      <h2><span class="num">13</span>Adapters</h2>
       <p>Adapters translate the same config keys into each CLI's flags. Pick one with <code>cli-agent</code>.</p>
       <div class="table-wrap">
         <table>
@@ -484,7 +512,7 @@ task:
     </section>
 
     <section id="cli">
-      <h2><span class="num">12</span>Command line</h2>
+      <h2><span class="num">14</span>Command line</h2>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Flag</th><th>Effect</th></tr></thead>
@@ -511,7 +539,7 @@ agent-yaml run workflow.yaml --env-file .env.local --verbose</code></pre>
     </section>
 
     <section id="runner">
-      <h2><span class="num">13</span>Visual runner</h2>
+      <h2><span class="num">15</span>Visual runner</h2>
       <p><code>agent-yaml serve</code> starts a local console for browsing, running, and watching workflows.</p>
       <pre><code>agent-yaml serve                                  # http://127.0.0.1:8765
 agent-yaml serve --port 9000 --reload             # different port, autoreload
@@ -535,7 +563,7 @@ agent-yaml serve --db /tmp/runs.sqlite            # override the database</code>
     </section>
 
     <section id="debugging">
-      <h2><span class="num">14</span>Debugging</h2>
+      <h2><span class="num">16</span>Debugging</h2>
       <p>Work in this order. Each step costs less than the next one.</p>
       <ol>
         <li><code>agent-yaml validate wf.yaml</code> catches schema errors and a missing CLI.</li>
@@ -559,7 +587,7 @@ agent-yaml serve --db /tmp/runs.sqlite            # override the database</code>
     </section>
 
     <section id="limits">
-      <h2><span class="num">15</span>Limits and gotchas</h2>
+      <h2><span class="num">17</span>Limits and gotchas</h2>
       <ul>
         <li>Agent output is never parsed. If a step must prove something, it writes a file and a validator
             checks it.</li>
@@ -577,7 +605,7 @@ agent-yaml serve --db /tmp/runs.sqlite            # override the database</code>
     </section>
 
     <section id="next">
-      <h2><span class="num">16</span>Deep dives</h2>
+      <h2><span class="num">18</span>Deep dives</h2>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Page</th><th>Covers</th></tr></thead>
