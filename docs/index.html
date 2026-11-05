@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-yaml documentation</title>
+<style>
+  :root {
+    --bg: #fbfbfa;
+    --fg: #1c1c1a;
+    --muted: #5f5f59;
+    --line: #dcdcd6;
+    --panel: #ffffff;
+    --accent: #1f4f7a;
+    --code-bg: #f2f2ee;
+    --chip: #eef2f5;
+    --seq: #2f6b46;
+    --warn: #8a4b16;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131313; --fg: #e8e8e3; --muted: #a3a39b; --line: #2e2e2b;
+      --panel: #191918; --accent: #7fb0d8; --code-bg: #1e1e1c; --chip: #1d262d;
+      --seq: #7cbb95; --warn: #d9a06a;
+    }
+  }
+  * { box-sizing: border-box; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap {
+    display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 48px;
+    max-width: 1180px; margin: 0 auto; padding: 48px 28px 96px;
+  }
+  header.top { grid-column: 1 / -1; border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 8px; }
+  header.top .kicker {
+    text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem;
+    color: var(--muted); margin: 0 0 10px;
+  }
+  header.top h1 { margin: 0 0 10px; font-size: 2.2rem; letter-spacing: -0.025em; }
+  header.top p { margin: 0; color: var(--muted); max-width: 70ch; }
+
+  nav { position: sticky; top: 28px; align-self: start; font-size: 0.9rem; }
+  nav .group {
+    text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.68rem;
+    color: var(--muted); margin: 18px 0 8px;
+  }
+  nav .group:first-child { margin-top: 0; }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav li { margin: 0 0 7px; }
+  nav a { color: var(--muted); }
+  nav a:hover { color: var(--accent); }
+
+  main { min-width: 0; }
+  section { margin: 0 0 52px; scroll-margin-top: 20px; }
+  h2 { margin: 0 0 12px; font-size: 1.4rem; letter-spacing: -0.015em; }
+  h2 .num { color: var(--muted); font-weight: 500; margin-right: 8px; font-variant-numeric: tabular-nums; }
+  h3 { margin: 24px 0 8px; font-size: 1rem; }
+  p { margin: 0 0 14px; max-width: 74ch; }
+  .lead { color: var(--muted); }
+  p code, li code { white-space: nowrap; }
+  code, kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.87em; background: var(--code-bg); padding: 0.12em 0.36em; border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 15px 18px; overflow-x: auto; font-size: 0.855rem; line-height: 1.55; margin: 0 0 14px;
+  }
+  pre code { background: none; padding: 0; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.91rem; background: var(--panel); }
+  th, td { text-align: left; padding: 9px 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-weight: 600; font-size: 0.76rem; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); background: var(--bg);
+  }
+  tr:last-child td { border-bottom: 0; }
+  td code { white-space: nowrap; }
+  .note {
+    border-left: 3px solid var(--accent); padding: 2px 0 2px 16px;
+    color: var(--muted); margin: 16px 0; max-width: 74ch;
+  }
+  .warn { border-left-color: var(--warn); }
+  .pipeline {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    margin: 16px 0; padding: 14px 16px; border: 1px solid var(--line);
+    border-radius: 10px; background: var(--panel);
+  }
+  .pipeline .node {
+    background: var(--chip); border-radius: 6px; padding: 5px 9px;
+    font-size: 0.78rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: nowrap;
+  }
+  .pipeline .arrow { color: var(--muted); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 0 0 14px; }
+  .two > div { min-width: 0; }
+  .two pre { margin-bottom: 0; }
+  footer {
+    grid-column: 1 / -1; border-top: 1px solid var(--line); margin-top: 24px;
+    padding-top: 20px; color: var(--muted); font-size: 0.85rem;
+  }
+  @media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) {
+    .wrap { grid-template-columns: 1fr; padding: 28px 18px 72px; gap: 24px; }
+    nav { position: static; border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+    nav .group { margin-top: 12px; }
+    nav ol { display: flex; flex-wrap: wrap; gap: 12px; }
+    nav li { margin: 0; }
+  }
+  @media (max-width: 640px) {
+    th, td { padding: 8px 10px; }
+    table { font-size: 0.85rem; }
+  }
+  @media print {
+    nav { display: none; }
+    .wrap { grid-template-columns: 1fr; }
+    body { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <p class="kicker">agent-yaml</p>
+    <h1>Documentation</h1>
+    <p>Key concepts and how to implement them. Every example on this page validates with
+       <code>agent-yaml validate</code>.</p>
+  </header>
+
+  <nav>
+    <div class="group">Getting started</div>
+    <ol>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#install">Install and first run</a></li>
+      <li><a href="#workflow-file">The workflow file</a></li>
+    </ol>
+    <div class="group">Concepts</div>
+    <ol start="4">
+      <li><a href="#task-tree">Task tree</a></li>
+      <li><a href="#variables">Variables</a></li>
+      <li><a href="#includes">Includes</a></li>
+      <li><a href="#loops">Loops</a></li>
+      <li><a href="#validators">Validators</a></li>
+      <li><a href="#conditionals">Conditionals</a></li>
+      <li><a href="#errors">Errors and retries</a></li>
+    </ol>
+    <div class="group">Running</div>
+    <ol start="11">
+      <li><a href="#adapters">Adapters</a></li>
+      <li><a href="#cli">Command line</a></li>
+      <li><a href="#runner">Visual runner</a></li>
+      <li><a href="#debugging">Debugging</a></li>
+    </ol>
+    <div class="group">Reference</div>
+    <ol start="15">
+      <li><a href="#limits">Limits and gotchas</a></li>
+      <li><a href="#next">Deep dives</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="overview">
+      <h2><span class="num">1</span>Overview</h2>
+      <p>A workflow is one YAML file. Each task in it becomes one subprocess call to an agent CLI. Steps
+         hand each other files, and validators decide whether a step actually produced what it claimed.</p>
+      <div class="pipeline">
+        <span class="node">parser</span><span class="arrow">→</span>
+        <span class="node">schema validation</span><span class="arrow">→</span>
+        <span class="node">includes</span><span class="arrow">→</span>
+        <span class="node">variables</span><span class="arrow">→</span>
+        <span class="node">executor</span><span class="arrow">→</span>
+        <span class="node">adapter</span><span class="arrow">→</span>
+        <span class="node">agent CLI</span>
+      </div>
+      <p>Loops, validators, <code>skip-if</code>, <code>when</code>, and checkpoints act on tasks around that
+         subprocess. The shape of the task tree decides what runs in order and what runs at the same time.</p>
+      <p class="lead">The practical effect: the same file runs under OpenCode, Claude Code, Gemini, Qwen, or Codex.
+         You change <code>cli-agent</code>, and the steps stay the same.</p>
+    </section>
+
+    <section id="install">
+      <h2><span class="num">2</span>Install and first run</h2>
+      <p>Install from the repository. There is no PyPI release yet. You need Python 3.8 or newer and at
+         least one agent CLI on <code>PATH</code>.</p>
+      <pre><code>pip install "git+https://github.com/roboalchemist/agent-yaml.git"
+agent-yaml --help</code></pre>
+
+      <p>Write a workflow, check it, then run it:</p>
+      <pre><code class="yaml full">directory: /tmp/hello
+cli-agent: opencode
+cli-agent-config:
+  skip-confirmations: true
+
+task:
+  - write-file:
+      prompt: "Create hello.txt containing: hello from agent-yaml"</code></pre>
+      <pre><code>mkdir -p /tmp/hello
+agent-yaml validate hello.yaml        # parse, schema, and CLI check. No agent calls.
+agent-yaml run hello.yaml --dry-run   # print the exact command
+agent-yaml run hello.yaml             # call the agent</code></pre>
+      <p class="note">Run <code>validate</code> and <code>--dry-run</code> first. A wrong model name or an option the
+         CLI rejects shows up before you spend tokens.</p>
+    </section>
+
+    <section id="workflow-file">
+      <h2><span class="num">3</span>The workflow file</h2>
+      <p>Nine top-level fields. Only two are required.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>directory</code></td><td>string</td><td>yes</td><td>Working directory for every task. <code>~</code> expands, and the path must exist.</td></tr>
+            <tr><td><code>task</code></td><td>list</td><td>yes</td><td>The task tree.</td></tr>
+            <tr><td><code>cli-agent</code></td><td>string</td><td>no</td><td><code>opencode</code>, <code>claude</code> (default), <code>gemini</code>, <code>qwen</code>, or <code>codex</code>.</td></tr>
+            <tr><td><code>cli-agent-config</code></td><td>map</td><td>no</td><td><code>model</code>, <code>timeout</code>, <code>skip-confirmations</code>, <code>additional-dirs</code>, <code>mcp-config-file</code>, <code>raw-args</code>.</td></tr>
+            <tr><td><code>environment</code></td><td>map</td><td>no</td><td>Environment variables inherited by every task.</td></tr>
+            <tr><td><code>template-variables</code></td><td>map</td><td>no</td><td>User variables, resolved in dependency order.</td></tr>
+            <tr><td><code>includes</code></td><td>map</td><td>no</td><td>Reusable prompt fragments.</td></tr>
+            <tr><td><code>ensure</code></td><td>map</td><td>no</td><td>Pre-flight <code>tools</code> checks.</td></tr>
+            <tr><td><code>on-error</code></td><td>string</td><td>no</td><td><code>fail</code> (default), <code>continue</code>, or <code>skip</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Validation rejects unknown adapter options, missing required fields, and malformed task trees
+         before any subprocess starts.</p>
+    </section>
+
+    <section id="task-tree">
+      <h2><span class="num">4</span>Task tree</h2>
+      <p>A list runs in order. A mapping runs its keys concurrently. The two nest freely.</p>
+      <pre><code class="yaml full">directory: /tmp/docs-example
+cli-agent: opencode
+
+task:
+  - prepare:
+      prompt: "Write plan.md"
+
+  - execute:
+      collect: {prompt: "Write data.csv"}
+      analyze: {prompt: "Write analysis.md"}
+
+  - publish:
+      task:
+        - checksum: {prompt: "Write checksums.txt"}
+        - index:    {prompt: "Write index.md"}</code></pre>
+      <p><code>prepare</code> runs first. <code>collect</code> and <code>analyze</code> run together. Then
+         <code>checksum</code> and <code>index</code> run in order.</p>
+      <p class="note warn">A list item must be a named task (<code>name: {...}</code>). A bare
+         <code>- {prompt: "..."}</code> entry is rejected by validation.</p>
+      <p>Meta fields on a task: <code>prompt</code>, <code>task</code>, <code>loop</code>, <code>include</code>,
+         <code>validate</code>, <code>retry</code>, <code>skip-if</code>, <code>when</code>, <code>env</code>,
+         <code>directory</code>, <code>cli-agent-config</code>, <code>on-error</code>. Any other key is a child
+         task. A task with a <code>prompt</code> is a leaf, and sibling keys beside it are ignored, so keep
+         grouping and prompting in separate tasks.</p>
+      <p><a href="explainers/task-tree.html">Full task tree explainer</a></p>
+    </section>
+
+    <section id="variables">
+      <h2><span class="num">5</span>Variables</h2>
+      <p>Five variables are injected for you.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Variable</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td><code>{{directory}}</code></td><td>Absolute workflow directory.</td></tr>
+            <tr><td><code>{{gitroot}}</code></td><td>Nearest ancestor with <code>.git/</code>, else <code>{{directory}}</code>.</td></tr>
+            <tr><td><code>{{datetime}}</code></td><td>ISO-8601 timestamp with offset, fixed for the run.</td></tr>
+            <tr><td><code>{{user}}</code></td><td><code>USER</code>, <code>USERNAME</code>, or <code>LOGNAME</code>, else <code>unknown</code>.</td></tr>
+            <tr><td><code>{{env.NAME}}</code></td><td>Variable from the merged environment.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Define your own under <code>template-variables</code>. They may reference each other, and cycles are
+         rejected. Names use hyphens, not underscores.</p>
+      <pre><code class="yaml full">directory: /tmp/docs-example
+cli-agent: opencode
+
+template-variables:
+  service: billing-api
+  docs-dir: "{{gitroot}}/docs"
+  output: "{{docs-dir}}/{{service}}.md"
+
+task:
+  - write:
+      prompt: "Write {{output}}"</code></pre>
+      <p><code>--var key=value</code> overrides a user variable and arrives as a string.</p>
+      <p class="note warn">An undefined variable interpolates to an empty string. Validation does not catch it,
+         and the prompt silently loses a path.</p>
+    </section>
+
+    <section id="includes">
+      <h2><span class="num">6</span>Includes</h2>
+      <p>Includes are prompt fragments you reuse across tasks. A name defined under <code>includes:</code> is
+         inline text. Any other string is a file path, and a missing file is an error.</p>
+      <pre><code class="yaml full">directory: /tmp/docs-example
+cli-agent: opencode
+
+includes:
+  use-subagents: "Use sub-agents for independent parts of this task."
+  always-validate: "Validate every change before finishing."
+
+task:
+  - review:
+      prompt: "Review the diff and write review.md"
+      include: [use-subagents, always-validate]</code></pre>
+      <p>Included text is appended to the prompt before interpolation, so variables inside a fragment resolve
+         against the task that includes it. Include cycles are rejected.</p>
+    </section>
+
+    <section id="loops">
+      <h2><span class="num">7</span>Loops</h2>
+      <p>A loop turns one task into one task per item. Five sources.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Type</th><th>Iterates over</th><th>Required</th><th>Item fields</th></tr></thead>
+          <tbody>
+            <tr><td><code>todo-list</code></td><td>Pending <code>- [ ]</code> items in markdown</td><td><code>source</code></td><td><code>text</code>, <code>number</code>, <code>line</code></td></tr>
+            <tr><td><code>csv</code></td><td>CSV rows</td><td><code>source</code></td><td>named columns plus <code>row</code></td></tr>
+            <tr><td><code>json</code></td><td>JSON array, optionally nested</td><td><code>source</code></td><td>object fields plus <code>_index</code></td></tr>
+            <tr><td><code>jsonl</code></td><td>One JSON object per line</td><td><code>source</code></td><td>object fields plus <code>_index</code></td></tr>
+            <tr><td><code>glob</code></td><td>Files matching a pattern</td><td><code>pattern</code></td><td><code>path</code>, <code>filename</code>, <code>extension</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Every loop accepts <code>checkpoint-file</code>, <code>resume</code>, <code>retry</code>,
+         <code>directory-pool</code>, and <code>git-worktrees</code>. <code>workers</code> only parallelizes
+         <code>csv</code>, <code>json</code>, and <code>jsonl</code>.</p>
+      <pre><code class="yaml full">directory: /tmp/docs-example
+cli-agent: opencode
+
+task:
+  - prepare:
+      prompt: "Write rows.csv with a name column"
+
+  - summarize:
+      loop:
+        type: csv
+        source: "{{directory}}/rows.csv"
+        workers: 4
+        retry: {max-attempts: 3, on-failure: retry}
+        checkpoint-file: "{{directory}}/state/summaries.json"
+        resume: true
+      prompt: "Summarize {{loop.item.name}} into {{directory}}/out/{{loop.item.name}}.md"
+      validate:
+        - file-not-empty: "{{directory}}/out/{{loop.item.name}}.md"</code></pre>
+      <p>Loop variables: <code>{{loop.index}}</code> (0-based), <code>{{loop.total}}</code>,
+         <code>{{loop.remaining}}</code>, <code>{{loop.item}}</code>. With a worker directory you also get
+         <code>{{loop.worker.id}}</code> and <code>{{loop.worker.directory}}</code>.</p>
+      <p class="note">Checkpoints make a loop resumable. The file records the last completed index, so rerunning
+         the same command skips finished items. <code>agent-yaml run --resume</code> is a no-op. Resumption is
+         driven by <code>resume: true</code> in the loop.</p>
+      <p><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/LOOPS.md">Loop reference</a> and <a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/PARALLEL_LOOPS.md">parallel loops</a>.</p>
+    </section>
+
+    <section id="validators">
+      <h2><span class="num">8</span>Validators</h2>
+      <p>A validator runs after the task exits 0 and inspects what it produced. This is the difference between
+         an agent saying it finished and the file existing.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Validator</th><th>Config</th><th>Passes when</th></tr></thead>
+          <tbody>
+            <tr><td><code>file-exists</code></td><td>string path</td><td>The path exists.</td></tr>
+            <tr><td><code>file-not-empty</code></td><td>string path</td><td>The path exists and is not empty.</td></tr>
+            <tr><td><code>contains</code></td><td><code>{file, text}</code></td><td>The file contains the text.</td></tr>
+            <tr><td><code>json-valid</code></td><td>string path</td><td>The file parses as JSON.</td></tr>
+            <tr><td><code>yaml-valid</code></td><td>string path</td><td>The file parses as YAML.</td></tr>
+            <tr><td><code>command</code></td><td><code>{cmd, file?, timeout?}</code></td><td>The command exits 0. <code>{file}</code> is substituted.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre><code class="yaml full">directory: /tmp/docs-example
+cli-agent: opencode
+
+task:
+  - report:
+      prompt: "Write report.md with a ## Summary section"
+      validate:
+        - file-exists: "{{directory}}/report.md"
+        - contains: {file: "{{directory}}/report.md", text: "## Summary"}
+        - command: {cmd: "python3 -c \"print('ok')\"", timeout: 10}
+      retry:
+        max-attempts: 3
+        on-validation-failure: retry</code></pre>
+      <p>All validators in the list run, even after one fails, so a single pass reports every problem.</p>
+      <p class="note warn">Validator paths resolve against the agent-yaml process working directory, not the
+         workflow <code>directory</code>. Use absolute paths, usually <code>{{directory}}/...</code>.</p>
+      <p><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/VALIDATORS.md">Validator reference</a>.</p>
+    </section>
+
+    <section id="conditionals">
+      <h2><span class="num">9</span>Conditionals</h2>
+      <p><code>skip-if</code> is an idempotency check that runs before the task. <code>when</code> is an
+         expression gate. Skip-if is evaluated first.</p>
+      <pre><code class="yaml full">directory: /tmp/docs-example
+cli-agent: opencode
+
+task:
+  - deploy:
+      skip-if:
+        file-exists: "{{directory}}/deployed.flag"
+      when: "{{environment}} == 'production' and {{tests_passed}}"
+      prompt: "Deploy and write deployed.flag"</code></pre>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Gate</th><th>Options</th><th>Behavior</th></tr></thead>
+          <tbody>
+            <tr><td><code>skip-if</code></td><td><code>file-exists</code>, <code>file-contains</code></td><td>A missing file for <code>file-exists</code> means do not skip.</td></tr>
+            <tr><td><code>when</code></td><td><code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code>, <code>and</code>, <code>or</code>, <code>not</code>, <code>in</code>, <code>not in</code></td><td>An empty expression, an undefined variable, or a bad expression skips the task.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note warn"><code>--var</code> values are strings. <code>--var n=5</code> against
+         <code>{{n}} &gt; 3</code> compares a string to a number, fails internally, and skips the task. Write
+         <code>{{n | int}} &gt; 3</code> when the value comes from the CLI.</p>
+    </section>
+
+    <section id="errors">
+      <h2><span class="num">10</span>Errors and retries</h2>
+      <p>Three levels, each with its own setting.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Level</th><th>Setting</th><th>Values</th></tr></thead>
+          <tbody>
+            <tr><td>Workflow or task</td><td><code>on-error</code></td><td><code>fail</code> (default), <code>continue</code>, <code>skip</code></td></tr>
+            <tr><td>Loop item</td><td><code>retry.on-failure</code></td><td><code>skip</code>, <code>retry</code>, <code>abort</code></td></tr>
+            <tr><td>Validator</td><td><code>retry.on-validation-failure</code></td><td><code>retry</code>, <code>fail</code>, <code>skip</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre><code class="yaml full">directory: /tmp/docs-example
+cli-agent: opencode
+on-error: continue
+
+task:
+  - flaky:
+      prompt: "Write output.txt"
+      validate:
+        - file-not-empty: "{{directory}}/output.txt"
+      retry:
+        max-attempts: 3
+        on-validation-failure: retry</code></pre>
+      <p>In a list, <code>fail</code> stops the remaining tasks. In a parallel group, tasks already submitted
+         still run, pending ones are cancelled, and the run exits non-zero. Cancellation is best effort.</p>
+    </section>
+
+    <section id="adapters">
+      <h2><span class="num">11</span>Adapters</h2>
+      <p>Adapters translate the same config keys into each CLI's flags. Pick one with <code>cli-agent</code>.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Adapter</th><th>Skip confirmations</th><th>Model</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>opencode</code></td><td><code>--auto</code></td><td><code>--model provider/model</code></td><td>Runs <code>opencode run</code>, with <code>--standalone</code> by default.</td></tr>
+            <tr><td><code>claude</code></td><td><code>--dangerously-skip-permissions</code></td><td><code>--model</code></td><td>Aliases such as <code>sonnet-4.5</code> are translated.</td></tr>
+            <tr><td><code>gemini</code></td><td><code>--yolo</code></td><td><code>--model</code></td><td><code>--include-directories</code> from <code>additional-dirs</code>.</td></tr>
+            <tr><td><code>qwen</code></td><td><code>--yolo</code></td><td><code>--model</code></td><td><code>--include-directories</code> from <code>additional-dirs</code>.</td></tr>
+            <tr><td><code>codex</code></td><td><code>--full-auto</code></td><td><code>-m</code></td><td>Uses only the first <code>additional-dirs</code> entry.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre><code class="yaml full">directory: /tmp/docs-example
+cli-agent: claude
+cli-agent-config:
+  model: sonnet-4.5
+  timeout: 900
+  skip-confirmations: true
+  additional-dirs: ["/tmp"]
+
+task:
+  - work:
+      prompt: "Write work.txt"</code></pre>
+      <p><code>raw-args</code> appends flags verbatim after the translated ones. Use it when a CLI changes and
+         the adapter has not caught up. Adding an adapter means subclassing <code>BaseAdapter</code>,
+         implementing <code>build_command()</code> and <code>check_available()</code>, and registering it.</p>
+      <p><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/ADAPTER_TROUBLESHOOTING.md">Adapter troubleshooting</a>.</p>
+    </section>
+
+    <section id="cli">
+      <h2><span class="num">12</span>Command line</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Flag</th><th>Effect</th></tr></thead>
+          <tbody>
+            <tr><td><code>--dry-run</code></td><td>Print the plan and every argv. No subprocess. The CLI availability check still runs.</td></tr>
+            <tr><td><code>--debug</code></td><td>Print the full command per task and stream agent output.</td></tr>
+            <tr><td><code>--verbose</code></td><td>Progress logging to stderr.</td></tr>
+            <tr><td><code>--var key=value</code></td><td>Override a template variable. Repeatable. Values arrive as strings.</td></tr>
+            <tr><td><code>--env-file PATH</code></td><td>Load a dotenv file. Repeatable, later files win.</td></tr>
+            <tr><td><code>--directory DIR</code></td><td>Override the workflow <code>directory</code>.</td></tr>
+            <tr><td><code>--cli-agent NAME</code></td><td>Override the adapter for this run.</td></tr>
+            <tr><td><code>--model MODEL</code></td><td>Model for every task, over the workflow and task config.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre><code>agent-yaml validate workflow.yaml
+agent-yaml run workflow.yaml --dry-run
+agent-yaml run workflow.yaml --cli-agent codex --model gpt-5 --var service=billing
+agent-yaml run workflow.yaml --env-file .env.local --verbose</code></pre>
+      <p>Exit codes: <code>0</code> success, <code>1</code> any failure (parse, validation, or task).</p>
+      <p class="lead">Environment precedence, later wins:</p>
+      <pre><code>system env  &lt;  --env-file  &lt;  environment:  &lt;  task env:  &lt;  --var</code></pre>
+      <p><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/CLI.md">Full CLI reference</a>.</p>
+    </section>
+
+    <section id="runner">
+      <h2><span class="num">13</span>Visual runner</h2>
+      <p><code>agent-yaml serve</code> starts a local console for browsing, running, and watching workflows.</p>
+      <pre><code>agent-yaml serve                                  # http://127.0.0.1:8765
+agent-yaml serve --port 9000 --reload             # different port, autoreload
+agent-yaml serve --db /tmp/runs.sqlite            # override the database</code></pre>
+      <p>It discovers <code>examples/*.yaml</code> and <code>tasks/*.yaml</code> relative to the server's working
+         directory, draws the stage graph on a WebGL2 canvas, and streams execution events over SSE. Runs,
+         node states, and interval or cron schedules persist in SQLite.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>GET /api/workflows/discover</code></td><td>Catalog entries with agent, directory, and stage count.</td></tr>
+            <tr><td><code>POST /api/workflows/import</code></td><td>Import a workflow path and project its graph.</td></tr>
+            <tr><td><code>POST /api/workflows/{id}/runs</code></td><td>Start a run, optionally dry.</td></tr>
+            <tr><td><code>GET /api/runs/{id}/stream</code></td><td>Live SSE callbacks.</td></tr>
+            <tr><td><code>GET/POST/PATCH/DELETE /api/schedules</code></td><td>Interval and cron schedules.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/INTERFACE_RUNNER.md">Interface runner reference</a>.</p>
+    </section>
+
+    <section id="debugging">
+      <h2><span class="num">14</span>Debugging</h2>
+      <p>Work in this order. Each step costs less than the next one.</p>
+      <ol>
+        <li><code>agent-yaml validate wf.yaml</code> catches schema errors and a missing CLI.</li>
+        <li><code>agent-yaml run wf.yaml --dry-run</code> shows the argv for every task, including the model.</li>
+        <li><code>agent-yaml run wf.yaml --debug</code> prints that argv and streams the agent output.</li>
+        <li>Read the file the task was supposed to write. If it is missing, the prompt asked for prose instead
+            of an artifact.</li>
+      </ol>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr><td><code>cli-agent 'x' not available</code></td><td>The CLI is not on <code>PATH</code>.</td><td>Install it or pass <code>--cli-agent</code>.</td></tr>
+            <tr><td>Variable resolves to empty</td><td>Undefined variable, or a hyphen typo.</td><td>Check the name, then <code>--dry-run</code>.</td></tr>
+            <tr><td>Task never runs</td><td><code>skip-if</code> matched, or <code>when</code> was falsy.</td><td>Check the flag file and the expression types.</td></tr>
+            <tr><td>Agent ran, file missing</td><td>The prompt asked for chat output.</td><td>Ask for a file and add a validator.</td></tr>
+            <tr><td>Timeout</td><td>Default is no timeout.</td><td>Set <code>cli-agent-config.timeout</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="limits">
+      <h2><span class="num">15</span>Limits and gotchas</h2>
+      <ul>
+        <li>Agent output is never parsed. If a step must prove something, it writes a file and a validator
+            checks it.</li>
+        <li><code>workers</code> does nothing for <code>todo-list</code> and <code>glob</code>.</li>
+        <li><code>agent-yaml run --resume</code> is accepted but does nothing. Use <code>resume: true</code> on
+            the loop.</li>
+        <li><code>ensure.mcps</code> is a warning-only stub. Only <code>ensure.tools</code> is enforced.</li>
+        <li>A list item under <code>task:</code> must be named. <code>- {prompt: "..."}</code> is rejected.</li>
+        <li>A task with both <code>prompt</code> and child keys runs only the prompt. The children are ignored.</li>
+        <li>The Codex adapter emits flags that recent <code>codex-cli</code> releases reject. Use
+            <code>raw-args</code>.</li>
+        <li>Parallel cancellation is best effort. Already-running tasks finish.</li>
+        <li>There is no nested loop support. A loop task cannot start another loop.</li>
+      </ul>
+    </section>
+
+    <section id="next">
+      <h2><span class="num">16</span>Deep dives</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Page</th><th>Covers</th></tr></thead>
+          <tbody>
+            <tr><td><a href="explainers/primitives.html">Primitives</a></td><td>Every field, type, loop, validator, and variable on one page.</td></tr>
+            <tr><td><a href="explainers/task-tree.html">Task tree</a></td><td>Sequential and parallel shapes, nesting, and validation rules.</td></tr>
+            <tr><td><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/AUTHORING.md">Authoring</a></td><td>Workflow skeleton, traps, and a pre-commit checklist.</td></tr>
+            <tr><td><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/TEMPLATING.md">Templating</a></td><td>Interpolation paths, hyphen and undefined traps, <code>when</code> semantics.</td></tr>
+            <tr><td><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/LOOPS.md">Loops</a></td><td>All five types, filters, checkpoints, and limitations.</td></tr>
+            <tr><td><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/PARALLEL_LOOPS.md">Parallel loops</a></td><td>Workers, directory pools, and git worktrees.</td></tr>
+            <tr><td><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/VALIDATORS.md">Validators</a></td><td>All six checks, path rules, retries, and events.</td></tr>
+            <tr><td><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/CLI.md">CLI</a></td><td>Flags, exit codes, precedence, and troubleshooting.</td></tr>
+            <tr><td><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/INTERFACE_RUNNER.md">Interface runner</a></td><td>Serve flags, HTTP API, SSE, and persistence.</td></tr>
+            <tr><td><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/ADAPTER_TROUBLESHOOTING.md">Adapters</a></td><td>Per-CLI flag mapping and known-breaking flags.</td></tr>
+            <tr><td><a href="https://github.com/roboalchemist/agent-yaml/blob/main/spec/YAML_SPEC.md">YAML spec</a></td><td>Authoritative schema reference.</td></tr>
+            <tr><td><a href="https://github.com/roboalchemist/agent-yaml/blob/main/examples/README.md">Examples</a></td><td>40 runnable workflows, all dry-run in CI.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>agent-yaml. MIT license.
+       <a href="https://github.com/roboalchemist/agent-yaml">Repository</a>.</p>
+  </footer>
+
+</div>
+</body>
+</html>

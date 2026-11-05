@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-yaml task tree</title>
+<style>
+  :root {
+    --bg: #fbfbfa;
+    --fg: #1c1c1a;
+    --muted: #5f5f59;
+    --line: #dcdcd6;
+    --panel: #ffffff;
+    --accent: #1f4f7a;
+    --code-bg: #f2f2ee;
+    --chip: #eef2f5;
+    --seq: #2f6b46;
+    --par: #8a4b16;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131313;
+      --fg: #e8e8e3;
+      --muted: #a3a39b;
+      --line: #2e2e2b;
+      --panel: #191918;
+      --accent: #7fb0d8;
+      --code-bg: #1e1e1c;
+      --chip: #1d262d;
+      --seq: #7cbb95;
+      --par: #d9a06a;
+    }
+  }
+  * { box-sizing: border-box; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 48px;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 48px 28px 96px;
+  }
+  header.top {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 28px;
+    margin-bottom: 8px;
+  }
+  header.top h1 { margin: 0 0 8px; font-size: 2.1rem; letter-spacing: -0.02em; }
+  header.top p { margin: 0; color: var(--muted); max-width: 70ch; }
+  nav { position: sticky; top: 32px; align-self: start; font-size: 0.9rem; }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav li { margin: 0 0 10px; }
+  nav a { color: var(--muted); }
+  nav a:hover { color: var(--accent); }
+  nav .label {
+    text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem;
+    color: var(--muted); margin-bottom: 14px;
+  }
+  main { min-width: 0; }
+  section { margin: 0 0 56px; }
+  h2 { margin: 0 0 12px; font-size: 1.35rem; letter-spacing: -0.01em; padding-top: 8px; }
+  h2 .count { font-size: 0.8rem; font-weight: 500; color: var(--muted); margin-left: 8px; }
+  h3 { margin: 28px 0 10px; font-size: 1rem; }
+  p { margin: 0 0 14px; max-width: 72ch; }
+  .lead { color: var(--muted); }
+  code, kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.87em; background: var(--code-bg);
+    padding: 0.12em 0.36em; border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px 18px; overflow-x: auto; font-size: 0.86rem; line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; background: var(--panel); }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-weight: 600; font-size: 0.78rem; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); background: var(--bg);
+  }
+  tr:last-child td { border-bottom: 0; }
+  td code { white-space: nowrap; }
+
+  /* tree diagram */
+  .tree {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+    padding: 18px 20px; margin: 18px 0; font-size: 0.9rem;
+  }
+  .tree .row { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; }
+  .tree .step { color: var(--muted); flex: none; width: 1.1em; }
+  .tree .children {
+    border-left: 1px solid var(--line);
+    margin: 2px 0 6px 8px;
+    padding-left: 20px;
+  }
+  .tree .name { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.86rem; }
+  .tree .tag {
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 1px 6px; border-radius: 999px; border: 1px solid currentColor;
+  }
+  .tree .tag.seq { color: var(--seq); }
+  .tree .tag.par { color: var(--par); }
+  .tree .note { color: var(--muted); font-size: 0.82rem; margin-left: 6px; }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 16px 0 0; }
+  .two > div { min-width: 0; }
+  .two h3 { margin-top: 0; }
+  .badge {
+    display: inline-block; font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: 0.06em; padding: 1px 7px; border-radius: 999px;
+    border: 1px solid currentColor; margin-left: 6px; vertical-align: 2px;
+  }
+  .badge.seq { color: var(--seq); }
+  .badge.par { color: var(--par); }
+
+  p.note {
+    border-left: 3px solid var(--accent); padding: 2px 0 2px 16px;
+    color: var(--muted); margin: 18px 0; max-width: 72ch;
+  }
+  .ok { color: var(--seq); font-weight: 600; }
+  .no { color: #a33; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { .no { color: #e08a8a; } }
+
+  footer {
+    grid-column: 1 / -1; border-top: 1px solid var(--line);
+    margin-top: 32px; padding-top: 20px; color: var(--muted); font-size: 0.85rem;
+  }
+  @media (max-width: 900px) {
+    .two { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    th, td { padding: 8px 10px; }
+    table { font-size: 0.85rem; }
+  }
+  @media (max-width: 860px) {
+    .wrap { grid-template-columns: 1fr; padding: 28px 18px 72px; gap: 24px; }
+    nav { position: static; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+    nav ol { display: flex; flex-wrap: wrap; gap: 14px; }
+    nav li { margin: 0; }
+  }
+  @media print {
+    nav { display: none; }
+    .wrap { grid-template-columns: 1fr; }
+    body { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>The task tree</h1>
+    <p>The value of <code>task:</code> is a nested list and mapping structure. The shape decides what
+       runs in order and what runs at the same time. Nothing else schedules work.</p>
+  </header>
+
+  <nav>
+    <div class="label">On this page</div>
+    <ol>
+      <li><a href="#rule">One rule</a></li>
+      <li><a href="#entries">Entries and meta fields</a></li>
+      <li><a href="#nesting">Nesting</a></li>
+      <li><a href="#loops">Loops as nodes</a></li>
+      <li><a href="#validation">What validation accepts</a></li>
+      <li><a href="#failure">Failure behavior</a></li>
+      <li><a href="#code">Where it lives</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="rule">
+      <h2>One rule <span class="count">list versus mapping</span></h2>
+      <p>A <strong>list</strong> runs its items in order. A <strong>mapping</strong> runs its keys at the same time.
+         Lists and mappings nest freely, so a tree can sequence a fan-out and then fan back in.</p>
+
+      <div class="two">
+        <div>
+          <h3>List <span class="badge seq">sequential</span></h3>
+          <pre><code class="yaml full">directory: /tmp/tree-demo
+cli-agent: opencode
+
+task:
+  - setup:
+      prompt: "Create the work directory"
+  - build:
+      prompt: "Write build.txt"
+  - publish:
+      prompt: "Write published.txt"</code></pre>
+        </div>
+        <div>
+          <h3>Mapping <span class="badge par">parallel</span></h3>
+          <pre><code class="yaml full">directory: /tmp/tree-demo
+cli-agent: opencode
+
+task:
+  - review:
+      stats:  {prompt: "Write stats.md"}
+      report: {prompt: "Write report.md"}</code></pre>
+        </div>
+      </div>
+
+      <p>Each runs <code>setup</code>, then <code>build</code>, then <code>publish</code> in the first case, and
+         <code>stats</code> beside <code>report</code> in the second. A dry run prints which is which:</p>
+      <pre><code>[Sequential Step 1]
+    Task: review
+      [Parallel Group - 2 tasks]
+        Task: stats
+          [Task]
+            Prompt: Write stats.md
+        Task: report
+          [Task]
+            Prompt: Write report.md</code></pre>
+      <p class="lead">A mapping only means parallel when it sits where a task definition is expected. The value of a
+         top-level <code>task:</code> must be a list.</p>
+    </section>
+
+    <section id="entries">
+      <h2>Entries and meta fields</h2>
+      <p>Every list item is one named task: a mapping with a single key (the name) whose value is the task
+         definition. That definition is either a leaf (it has a <code>prompt</code> or a <code>loop</code>) or another
+         mapping of child tasks.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Meta field</th><th>Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>prompt</code></td><td>Makes the task a leaf. The text goes to the agent CLI.</td></tr>
+            <tr><td><code>loop</code></td><td>Makes the task a loop leaf, repeated per item. Takes precedence over <code>prompt</code>.</td></tr>
+            <tr><td><code>task</code></td><td>A nested list of child tasks, run in order.</td></tr>
+            <tr><td><code>include</code></td><td>Names from the top-level <code>includes</code>, appended to the prompt.</td></tr>
+            <tr><td><code>validate</code></td><td>Validators run after the task exits 0.</td></tr>
+            <tr><td><code>retry</code></td><td><code>max-attempts</code> and <code>on-validation-failure</code>.</td></tr>
+            <tr><td><code>skip-if</code></td><td>File check evaluated before the task runs.</td></tr>
+            <tr><td><code>when</code></td><td>Expression gate. An empty string skips the task.</td></tr>
+            <tr><td><code>env</code></td><td>Environment variables for this task.</td></tr>
+            <tr><td><code>directory</code></td><td>Working directory for this task, relative to the workflow directory.</td></tr>
+            <tr><td><code>cli-agent-config</code></td><td>Adapter options for this task.</td></tr>
+            <tr><td><code>on-error</code></td><td><code>fail</code>, <code>continue</code>, or <code>skip</code> for this task.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Any other key in a task definition is a child task name. That is why the parallel example above needs no
+         <code>parallel:</code> keyword.</p>
+
+      <p class="note">A task with a <code>prompt</code> is a leaf. Sibling keys next to that <code>prompt</code> are
+         ignored, not executed. This passes validation and silently drops the child:</p>
+      <pre><code class="yaml full">directory: /tmp/tree-demo
+cli-agent: opencode
+
+task:
+  - parent:
+      prompt: "Write parent.txt"
+      child: {prompt: "Never runs"}</code></pre>
+    </section>
+
+    <section id="nesting">
+      <h2>Nesting</h2>
+      <p>Lists and mappings alternate. This example sequences three phases, runs two workers inside the middle
+         phase, and sequences two follow-ups inside a nested <code>task:</code> list.</p>
+
+      <pre><code class="yaml full">directory: /tmp/tree-demo
+cli-agent: opencode
+
+task:
+  - prepare:
+      prompt: "Write plan.md"
+
+  - execute:
+      collect: {prompt: "Write data.csv"}
+      analyze: {prompt: "Write analysis.md"}
+
+  - publish:
+      task:
+        - checksum: {prompt: "Write checksums.txt"}
+        - index:    {prompt: "Write index.md"}</code></pre>
+
+      <div class="tree">
+        <div class="row"><span class="step">1</span><span class="name">prepare</span><span class="tag seq">seq</span><span class="note">Write plan.md</span></div>
+        <div class="row"><span class="step">2</span><span class="name">execute</span><span class="tag par">par</span></div>
+        <div class="children">
+          <div class="row"><span class="name">collect</span><span class="note">Write data.csv</span></div>
+          <div class="row"><span class="name">analyze</span><span class="note">Write analysis.md</span></div>
+        </div>
+        <div class="row"><span class="step">3</span><span class="name">publish</span><span class="tag seq">seq</span></div>
+        <div class="children">
+          <div class="row"><span class="name">checksum</span><span class="note">Write checksums.txt</span></div>
+          <div class="row"><span class="name">index</span><span class="note">Write index.md</span></div>
+        </div>
+      </div>
+
+      <p>Execution order: <code>prepare</code>, then <code>collect</code> and <code>analyze</code> together, then
+         <code>checksum</code>, then <code>index</code>.</p>
+    </section>
+
+    <section id="loops">
+      <h2>Loops as nodes</h2>
+      <p>A task definition with a <code>loop</code> is a leaf that repeats. It participates in the tree like any other
+         node, so a loop can be one branch of a parallel group.</p>
+
+      <pre><code class="yaml full">directory: /tmp/tree-demo
+cli-agent: opencode
+
+task:
+  - prepare:
+      prompt: "Write rows.csv with a name column"
+
+  - process:
+      docs: {prompt: "Write overview.md"}
+      rows:
+        loop:
+          type: csv
+          source: "/tmp/tree-demo/rows.csv"
+          workers: 4
+        prompt: "Summarize {{loop.item.name}} into /tmp/tree-demo/out/{{loop.item.name}}.md"</code></pre>
+
+      <p>Here <code>docs</code> and <code>rows</code> run together. The loop expands into one task per CSV row, with up
+         to four rows in flight.</p>
+    </section>
+
+    <section id="validation">
+      <h2>What validation accepts <span class="count">checked with the CLI</span></h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Shape</th><th>Result</th><th>Message or note</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>task: [ name: {prompt}, ... ]</code></td>
+              <td class="ok">accepted</td>
+              <td>Sequential list of named tasks.</td>
+            </tr>
+            <tr>
+              <td><code>name: {a: {prompt}, b: {prompt}}</code></td>
+              <td class="ok">accepted</td>
+              <td>Parallel group. Keys become tasks.</td>
+            </tr>
+            <tr>
+              <td><code>name: {task: [ ... ]}</code></td>
+              <td class="ok">accepted</td>
+              <td>Nested sequential list inside a task.</td>
+            </tr>
+            <tr>
+              <td><code>task: [ {prompt: "..."} ]</code></td>
+              <td class="no">rejected</td>
+              <td><code>Task definition for 'prompt' ... must be a dict, got str</code>. List items need a name.</td>
+            </tr>
+            <tr>
+              <td><code>name: {task: {a: {prompt}}}</code></td>
+              <td class="no">rejected</td>
+              <td><code>Task at ... must be a dict, got str</code>. Use a list under <code>task:</code>.</td>
+            </tr>
+            <tr>
+              <td><code>name: {}</code></td>
+              <td class="no">rejected</td>
+              <td><code>Task with neither prompt nor nested tasks</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="lead">Scroll to the right if the table is clipped on a narrow screen.</p>
+    </section>
+
+    <section id="failure">
+      <h2>Failure behavior</h2>
+      <p>Inside a list, a failing task stops the list when <code>on-error</code> is <code>fail</code>. Later items never
+         start. With <code>continue</code> the failure is logged and the next item runs. With <code>skip</code> the run
+         proceeds and the failure is not counted.</p>
+      <p>Inside a mapping, tasks are already submitted to the thread pool when the first one fails. Pending tasks are
+         cancelled and tasks already running finish. The run still exits non-zero.</p>
+      <p class="lead">That is the limit of cancellation. A parallel group is not an atomic unit.</p>
+    </section>
+
+    <section id="code">
+      <h2>Where it lives</h2>
+      <p><code>execute_task_tree</code> in <code>src/cli.py</code> is the interpreter. It branches on three cases: a list
+         runs in order, a dict with <code>loop</code> is a loop leaf, a dict with <code>prompt</code> is a leaf, and
+         anything else is a parallel group.</p>
+      <p><code>src/validator.py</code> enforces the shapes above before anything runs. <code>src/graph.py</code> projects
+         the same tree into the node graph used by <code>agent-yaml serve</code>, so the picture in the visual runner is
+         the tree you wrote.</p>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>Field reference: <a href="https://github.com/roboalchemist/agent-yaml/blob/main/spec/YAML_SPEC.md">spec/YAML_SPEC.md</a>. Authoring guide:
+       <a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/AUTHORING.md">docs/AUTHORING.md</a>. Primitive reference:
+       <a href="primitives.html">primitives.html</a>.</p>
+  </footer>
+
+</div>
+</body>
+</html>
