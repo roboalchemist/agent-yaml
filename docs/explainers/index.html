@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-yaml docs</title>
+<style>
+  :root {
+    --bg: #fbfbfa;
+    --fg: #1c1c1a;
+    --muted: #5f5f59;
+    --line: #dcdcd6;
+    --panel: #ffffff;
+    --accent: #1f4f7a;
+    --code-bg: #f2f2ee;
+    --chip: #eef2f5;
+    --seq: #2f6b46;
+    --par: #8a4b16;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131313; --fg: #e8e8e3; --muted: #a3a39b; --line: #2e2e2b;
+      --panel: #191918; --accent: #7fb0d8; --code-bg: #1e1e1c; --chip: #1d262d;
+      --seq: #7cbb95; --par: #d9a06a;
+    }
+  }
+  * { box-sizing: border-box; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 56px 28px 96px; }
+
+  header.top { border-bottom: 1px solid var(--line); padding-bottom: 32px; margin-bottom: 44px; }
+  header.top .kicker {
+    text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem;
+    color: var(--muted); margin: 0 0 10px;
+  }
+  header.top h1 { margin: 0 0 10px; font-size: 2.3rem; letter-spacing: -0.025em; }
+  header.top p { margin: 0; color: var(--muted); max-width: 66ch; }
+
+  h2 { margin: 0 0 6px; font-size: 1.2rem; letter-spacing: -0.01em; }
+  h2 + .sub { margin: 0 0 18px; color: var(--muted); font-size: 0.92rem; }
+  section { margin: 0 0 52px; }
+  p { margin: 0 0 14px; max-width: 72ch; }
+
+  code, kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.87em; background: var(--code-bg); padding: 0.12em 0.36em; border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px 18px; overflow-x: auto; font-size: 0.86rem; line-height: 1.55; margin: 0 0 14px;
+  }
+  pre code { background: none; padding: 0; }
+
+  .quickstart { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 22px 24px; }
+  .quickstart h2 { margin-bottom: 14px; }
+  .quickstart .cmd { margin: 0 0 10px; }
+  .quickstart .cmd:last-child { margin-bottom: 0; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .card {
+    display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+    padding: 16px 18px; color: inherit;
+  }
+  .card:hover { border-color: var(--accent); text-decoration: none; }
+  .card .title { display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; font-weight: 600; }
+  .card .title .tag {
+    font-size: 0.63rem; text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 1px 6px; border-radius: 999px; border: 1px solid currentColor; color: var(--muted);
+  }
+  .card .title .tag.html { color: var(--seq); }
+  .card p { margin: 0; color: var(--muted); font-size: 0.88rem; }
+  .card code { font-size: 0.82em; }
+
+  ol.path { margin: 0; padding-left: 22px; }
+  ol.path li { margin: 0 0 10px; }
+  ol.path li strong { font-weight: 600; }
+  ol.path li span { color: var(--muted); }
+
+  .note {
+    border-left: 3px solid var(--accent); padding: 2px 0 2px 16px;
+    color: var(--muted); margin: 20px 0 0; max-width: 72ch;
+  }
+  footer { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 20px; color: var(--muted); font-size: 0.85rem; }
+  @media (max-width: 640px) {
+    .wrap { padding: 32px 18px 72px; }
+    header.top h1 { font-size: 1.9rem; }
+  }
+  @media print { body { background: #fff; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <p class="kicker">agent-yaml</p>
+    <h1>Docs</h1>
+    <p>Guides for writing a workflow, running it under any agent CLI, and proving that each step did
+       its job.</p>
+  </header>
+
+  <section class="quickstart">
+    <h2>Start here</h2>
+    <pre><code>pip install "git+https://github.com/roboalchemist/agent-yaml.git"
+mkdir -p /tmp/hello</code></pre>
+    <pre><code># hello.yaml
+directory: /tmp/hello
+cli-agent: opencode
+task:
+  - write-file:
+      prompt: "Create hello.txt containing: hello from agent-yaml"</code></pre>
+    <pre><code>agent-yaml validate hello.yaml        # parse and schema check
+agent-yaml run hello.yaml --dry-run   # print the exact command
+agent-yaml run hello.yaml             # call the agent</code></pre>
+  </section>
+
+  <section>
+    <h2>Foundations</h2>
+    <p class="sub">The vocabulary everything else is built from.</p>
+    <div class="cards">
+      <a class="card" href="primitives.html">
+        <p class="title">Primitives <span class="tag html">html</span></p>
+        <p>Every field, loop type, validator, and variable in one page, with types and required flags.</p>
+      </a>
+      <a class="card" href="task-tree.html">
+        <p class="title">Task tree <span class="tag html">html</span></p>
+        <p>How the shape of <code>task:</code> decides what runs in order and what runs in parallel.</p>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Authoring</h2>
+    <p class="sub">Writing the file: structure, templating, and loops.</p>
+    <div class="cards">
+      <a class="card" href="../AUTHORING.md">
+        <p class="title">Authoring a workflow <span class="tag">md</span></p>
+        <p>Workflow skeleton, task tree, includes, <code>ensure</code>, CLI overrides, and a pre-run checklist.</p>
+      </a>
+      <a class="card" href="../TEMPLATING.md">
+        <p class="title">Templating <span class="tag">md</span></p>
+        <p>Reserved and user variables, interpolation rules, Jinja2 features, and <code>when</code> semantics.</p>
+      </a>
+      <a class="card" href="../LOOPS.md">
+        <p class="title">Loops <span class="tag">md</span></p>
+        <p>All five loop types, the <code>skip-header</code> and <code>columns</code> matrix, filters, checkpoints, and resume.</p>
+      </a>
+      <a class="card" href="../PARALLEL_LOOPS.md">
+        <p class="title">Parallel loops <span class="tag">md</span></p>
+        <p><code>workers</code>, directory pools, git worktrees, and the worker variables.</p>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Verification</h2>
+    <p class="sub">Proving a step produced what it claimed.</p>
+    <div class="cards">
+      <a class="card" href="../VALIDATORS.md">
+        <p class="title">Validators <span class="tag">md</span></p>
+        <p>The six checks, path resolution, the command runner, and retry strategies.</p>
+      </a>
+      <a class="card" href="../CLI.md">
+        <p class="title">CLI reference <span class="tag">md</span></p>
+        <p>Flags, exit codes, environment precedence, error handling, and known limitations.</p>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Running</h2>
+    <p class="sub">Adapters, the visual runner, and provider differences.</p>
+    <div class="cards">
+      <a class="card" href="../INTERFACE_RUNNER.md">
+        <p class="title">Interface runner <span class="tag">md</span></p>
+        <p><code>agent-yaml serve</code>, the HTTP API, the SSE event stream, SQLite state, and schedules.</p>
+      </a>
+      <a class="card" href="../ADAPTER_TROUBLESHOOTING.md">
+        <p class="title">Adapter troubleshooting <span class="tag">md</span></p>
+        <p>Symptom to cause to fix, per-adapter flag mapping, and how to add an adapter.</p>
+      </a>
+      <a class="card" href="../../examples/README.md">
+        <p class="title">Examples <span class="tag">repo</span></p>
+        <p>40 runnable workflows covering every feature. All of them dry-run in the test suite.</p>
+      </a>
+      <a class="card" href="../../spec/YAML_SPEC.md">
+        <p class="title">YAML spec <span class="tag">spec</span></p>
+        <p>The authoritative field-by-field reference when a guide and the code disagree.</p>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Reading order</h2>
+    <p class="sub">For a first workflow, this order avoids the usual dead ends.</p>
+    <ol class="path">
+      <li><strong>Primitives.</strong> <span>Know the field names before writing any YAML.</span></li>
+      <li><strong>Task tree.</strong> <span>Decide what runs in order and what can run together.</span></li>
+      <li><strong>Authoring.</strong> <span>Write the file, then run <code>agent-yaml validate</code>.</span></li>
+      <li><strong>Validators.</strong> <span>Add a check per task that writes an artifact, then run with <code>--dry-run</code> before spending tokens.</span></li>
+      <li><strong>Loops.</strong> <span>Add a loop only once the single-item case works.</span></li>
+    </ol>
+    <p class="note">The HTML pages are self-contained and open from disk. The Markdown guides render on
+       GitHub and in the MkDocs site.</p>
+  </section>
+
+  <footer>
+    <p>Repository: <a href="https://github.com/roboalchemist/agent-yaml">roboalchemist/agent-yaml</a>.
+       License: MIT.</p>
+  </footer>
+
+</div>
+</body>
+</html>
