@@ -566,14 +566,20 @@ def execute_single_task(
 
         else:
             # Non-streaming mode: Use subprocess.run()
+            # Some CLIs (pi) hang on /dev/null stdin in print mode and need a clean EOF.
+            stdin_kwargs = (
+                {"input": ""}
+                if getattr(adapter, "needs_empty_stdin", False)
+                else {"stdin": subprocess.DEVNULL}
+            )
             result = subprocess.run(
                 command,
                 cwd=working_dir,
                 env=merged_env,
                 timeout=timeout,
-                stdin=subprocess.DEVNULL,
                 capture_output=True,
                 text=True,
+                **stdin_kwargs,
             )
             exit_code = result.returncode
 

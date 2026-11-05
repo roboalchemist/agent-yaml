@@ -10,7 +10,7 @@ The configuration is CLI-agnostic and uses an adapter layer to translate generic
 
 ```yaml
 directory: <string>
-cli-agent: <string>           # Which AI CLI to use (claude, gemini, qwen, codex)
+cli-agent: <string>           # Which AI CLI to use (claude, gemini, qwen, codex, opencode, pi)
 cli-agent-config: <object>    # CLI-specific configuration
 on-error: <string>            # Error handling strategy (fail, continue, skip)
 template-variables: <object>

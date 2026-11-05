@@ -32,7 +32,7 @@ class SchemaValidator:
     - Field value constraints (cli-agent must be opencode/claude/gemini/qwen/codex)
     """
 
-    VALID_CLI_AGENTS = ["opencode", "claude", "gemini", "qwen", "codex"]
+    VALID_CLI_AGENTS = ["opencode", "claude", "gemini", "qwen", "codex", "pi"]
     VALID_ON_ERROR_VALUES = ["fail", "continue", "skip"]
 
     def validate_schema(self, workflow_dict):

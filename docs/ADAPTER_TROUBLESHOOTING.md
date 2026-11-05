@@ -38,7 +38,7 @@ agent-yaml validate tasks/my-workflow.yaml --cli-agent codex
 | Timeout kills a run mid-way | `cli-agent-config.timeout` is per task, and parallel loop workers share it. | Raise `timeout`, or split the task. |
 | `codex exec` fails outside a git repo | Codex refuses to run without one. | Already handled: the adapter always passes `--skip-git-repo-check`. |
 | Only one `additional-dirs` entry applies (codex) | Codex supports a single `-C`. | The adapter uses `additional-dirs[0]` and warns about the rest. |
-| Missing CLI at validate time | Not installed / wrong PATH. | `which opencode` / `claude` / `gemini` / `qwen` / `codex`; install or adjust PATH. |
+| Missing CLI at validate time | Not installed / wrong PATH. | `which opencode` / `claude` / `gemini` / `qwen` / `codex` / `pi`; install or adjust PATH. |
 
 ---
 
@@ -60,6 +60,30 @@ agent-yaml validate tasks/my-workflow.yaml --cli-agent codex
 | `additional-dirs`, `mcp-servers`, `mcp-config-file` | **ignored with a warning** — configure in `opencode.json` |
 
 Requires OpenCode v2.x (`--standalone`/`--auto` do not exist in v1).
+
+### pi
+
+| Config | Emission |
+|--------|----------|
+| *(always)* | `pi -p` (print mode, one prompt and exit) |
+| `skip-confirmations: true` | `--approve` (trust project-local files) |
+| `provider` / `model` | `--provider` / `--model`; `provider/id` and `id:thinking` pass through |
+| `thinking` | `--thinking off|minimal|low|medium|high|xhigh|max` |
+| `tools` (list or string) | `--tools read,bash` |
+| `no-tools` / `exclude-tools` | `--no-tools` / `--exclude-tools name,name` |
+| `output-format: json` or `rpc` | `--mode json` / `--mode rpc`; `text` is the default |
+| `session-id` | `--session ID` |
+| `continue: true` | `--continue` (session-id wins) |
+| *(default when no session)* | `--no-session`, so each task is ephemeral |
+| `session: true` | keep persistence instead of `--no-session` |
+| `title` | `--name NAME` |
+| `debug: true` | `--verbose` |
+| `no-extensions: true` | `--no-extensions` |
+| prompt | last argument, after `--` |
+| `additional-dirs`, `mcp-servers`, `mcp-config-file` | **ignored with a warning** — tasks run in the workflow directory, MCP servers use `pi mcp` |
+
+The adapter feeds an empty stdin instead of `/dev/null`, because print mode can hang on `/dev/null`
+in some pi versions.
 
 ### Claude
 

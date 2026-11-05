@@ -19,7 +19,7 @@ from agent_yaml.cli import main, parse_var_overrides, run_workflow
 from agent_yaml.executor import ExecutionError
 from tests.support.helpers import bash_prompt, write_workflow
 
-ALLOWED_AGENTS = "['opencode', 'claude', 'gemini', 'qwen', 'codex']"
+ALLOWED_AGENTS = "['opencode', 'claude', 'gemini', 'qwen', 'codex', 'pi']"
 MODEL = "openai/gpt-4o-mini"
 
 

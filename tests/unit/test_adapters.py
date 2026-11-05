@@ -12,6 +12,7 @@ from agent_yaml.adapters import (
     CodexAdapter,
     GeminiAdapter,
     OpenCodeAdapter,
+    PiAdapter,
     QwenAdapter,
     UnsupportedCLIError,
     get_adapter,
@@ -25,6 +26,7 @@ ADAPTERS = {
     "qwen": QwenAdapter,
     "codex": CodexAdapter,
     "opencode": OpenCodeAdapter,
+    "pi": PiAdapter,
 }
 
 # Executables each adapter looks for on PATH (Claude takes either, preferring claude-code).
@@ -34,6 +36,7 @@ EXECUTABLES = {
     QwenAdapter: ("qwen",),
     CodexAdapter: ("codex",),
     OpenCodeAdapter: ("opencode",),
+    PiAdapter: ("pi",),
 }
 ALL_EXECUTABLES = tuple(name for names in EXECUTABLES.values() for name in names)
 
@@ -84,6 +87,7 @@ MINIMAL_COMMANDS = [
     pytest.param(QwenAdapter, ["qwen", "-p", PROMPT], id="qwen"),
     pytest.param(CodexAdapter, ["codex", "exec", "--skip-git-repo-check", PROMPT], id="codex"),
     pytest.param(OpenCodeAdapter, ["opencode", "run", "--standalone", "--", PROMPT], id="opencode"),
+    pytest.param(PiAdapter, ["pi", "-p", "--no-session", "--", PROMPT], id="pi"),
 ]
 
 CANONICAL_COMMANDS = [
@@ -266,6 +270,7 @@ PROMPT_TAILS = [
     pytest.param(QwenAdapter, ["-p", PROMPT], id="qwen"),
     pytest.param(CodexAdapter, [PROMPT], id="codex"),
     pytest.param(OpenCodeAdapter, ["--", PROMPT], id="opencode"),
+    pytest.param(PiAdapter, ["--", PROMPT], id="pi"),
 ]
 
 
@@ -303,6 +308,7 @@ SKIP_CONFIRMATIONS_FLAGS = [
     pytest.param(QwenAdapter, "--yolo", id="qwen"),
     pytest.param(CodexAdapter, "--full-auto", id="codex"),
     pytest.param(OpenCodeAdapter, "--auto", id="opencode"),
+    pytest.param(PiAdapter, "--approve", id="pi"),
 ]
 
 ADDITIONAL_DIRS_FLAGS = [
@@ -338,6 +344,8 @@ MODEL_FLAGS = [
         "anthropic/claude-haiku-5-5",
         id="opencode-passthrough",
     ),
+    pytest.param(PiAdapter, "zai/glm-5.1", "zai/glm-5.1", id="pi-passthrough"),
+    pytest.param(PiAdapter, "zai/glm-5.1:high", "zai/glm-5.1:high", id="pi-thinking-suffix"),
     pytest.param(
         ClaudeAdapter, "sonnet-4.5", "claude-sonnet-4-5-20250929", id="claude-maps-sonnet-4.5"
     ),
@@ -363,17 +371,20 @@ DEBUG_FLAGS = [
     pytest.param(QwenAdapter, ["--debug"], id="qwen"),
     pytest.param(CodexAdapter, ["-c", "debug=true"], id="codex"),
     pytest.param(OpenCodeAdapter, ["--print-logs"], id="opencode"),
+    pytest.param(PiAdapter, ["--verbose"], id="pi"),
 ]
 
 JSON_OUTPUT_FLAGS = [
     pytest.param(ClaudeAdapter, ["--output-format", "json"], id="claude"),
     pytest.param(GeminiAdapter, ["--output-format", "json"], id="gemini"),
     pytest.param(OpenCodeAdapter, ["--format", "json"], id="opencode"),
+    pytest.param(PiAdapter, ["--mode", "json"], id="pi"),
 ]
 
 SESSION_ID_FLAGS = [
     pytest.param(ClaudeAdapter, "--session-id", id="claude"),
     pytest.param(OpenCodeAdapter, "--session", id="opencode"),
+    pytest.param(PiAdapter, "--session", id="pi"),
 ]
 
 PERMISSION_FLAGS = [
@@ -905,7 +916,7 @@ class TestGetAdapter:
 
         message = str(exc_info.value)
         assert f"Unsupported CLI agent: '{name}'" in message
-        assert "Supported agents are: claude, codex, gemini, opencode, qwen" in message
+        assert "Supported agents are: claude, codex, gemini, opencode, pi, qwen" in message
 
     @pytest.mark.parametrize(
         "name, hint, which_command",
@@ -928,3 +939,75 @@ class TestGetAdapter:
         assert f"CLI executable not found for '{name}'" in message
         assert f"Please ensure '{hint}' is installed and available in PATH" in message
         assert f"Run '{which_command}' to verify installation" in message
+
+
+class TestPiAdapter:
+    """pi-specific mapping: sessions, tools, provider, and ignored options."""
+
+    def test_sessions_are_ephemeral_by_default(self):
+        assert build(PiAdapter, {}) == ["pi", "-p", "--no-session", "--", PROMPT]
+
+    def test_session_true_keeps_persistence(self):
+        cmd = build(PiAdapter, {"session": True})
+
+        assert cmd[:3] == ["pi", "-p", "--"]
+        assert "--no-session" not in cmd
+
+    def test_session_id_wins_over_continue_and_no_session(self):
+        cmd = build(PiAdapter, {"session-id": "abc123", "continue": True})
+
+        assert has_tokens(cmd, "--session", "abc123")
+        assert "--continue" not in cmd
+        assert "--no-session" not in cmd
+
+    def test_continue_flag(self):
+        cmd = build(PiAdapter, {"continue": True})
+
+        assert "--continue" in cmd
+        assert "--no-session" not in cmd
+
+    def test_tools_list_is_joined(self):
+        cmd = build(PiAdapter, {"tools": ["read", "bash", "grep"]})
+
+        assert has_tokens(cmd, "--tools", "read,bash,grep")
+
+    def test_tools_string_passes_through(self):
+        cmd = build(PiAdapter, {"tools": "read,grep"})
+
+        assert has_tokens(cmd, "--tools", "read,grep")
+
+    def test_tool_denylists_and_no_tools(self):
+        cmd = build(PiAdapter, {"no-tools": True, "exclude-tools": ["write", "edit"]})
+
+        assert "--no-tools" in cmd
+        assert has_tokens(cmd, "--exclude-tools", "write,edit")
+
+    def test_provider_and_thinking(self):
+        cmd = build(PiAdapter, {"provider": "zai", "thinking": "high"})
+
+        assert has_tokens(cmd, "--provider", "zai")
+        assert has_tokens(cmd, "--thinking", "high")
+
+    def test_title_maps_to_name(self):
+        cmd = build(PiAdapter, {"title": "Nightly docs"})
+
+        assert has_tokens(cmd, "--name", "Nightly docs")
+
+    def test_no_extensions_flag(self):
+        assert "--no-extensions" in build(PiAdapter, {"no-extensions": True})
+
+    @pytest.mark.parametrize("option", ["additional-dirs", "mcp-servers", "mcp-config-file"])
+    def test_unsupported_options_warn_and_are_dropped(self, option):
+        cmd, warnings = build_with_warnings(PiAdapter, {option: ["x"]})
+
+        assert cmd == build(PiAdapter, {})
+        assert any(option in message for message in warnings)
+
+    def test_unknown_output_format_warns(self):
+        cmd, warnings = build_with_warnings(PiAdapter, {"output-format": "stream-json"})
+
+        assert "--mode" not in cmd
+        assert any("stream-json" in message for message in warnings)
+
+    def test_adapter_requests_empty_stdin(self):
+        assert PiAdapter.needs_empty_stdin is True

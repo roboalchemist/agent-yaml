@@ -32,7 +32,7 @@ agent-yaml --help
 ```
 
 Python 3.8+, tested on 3.9, 3.11 and 3.12, plus at least one supported agent CLI on `PATH`
-(`opencode`, `claude`, `gemini`, `qwen`, or `codex`).
+(`opencode`, `claude`, `gemini`, `qwen`, `codex`, or `pi`).
 
 ## Quick start
 
@@ -219,6 +219,7 @@ and the HTTP API are in [docs/INTERFACE_RUNNER.md](docs/INTERFACE_RUNNER.md).
 | `gemini` | `--yolo` | `--model` |
 | `qwen` | `--yolo` | `--model` |
 | `codex` | `--full-auto` | `-m` |
+| `pi` | `--approve` | `--model provider/id` |
 
 Common options (`model`, `timeout`, `skip-confirmations`, `additional-dirs`, `mcp-config-file`,
 `debug`, `raw-args`, `output-format`) map to each CLI. See

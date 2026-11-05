@@ -772,3 +772,14 @@ class TestDebugMode:
         log = debug_log(tmp_path)
         assert "=== STDOUT ===\nagent said hi" in log
         assert "=== STDERR ===\nagent warned" in log
+
+
+def test_adapter_can_request_empty_stdin(workflow_config, subprocess_run):
+    """pi hangs on /dev/null stdin; the executor feeds an empty string when asked."""
+    from agent_yaml.adapters.pi import PiAdapter
+
+    execute_single_task("task", {"prompt": "p"}, {}, PiAdapter(), workflow_config)
+
+    kwargs = subprocess_run.call_args.kwargs
+    assert kwargs.get("input") == ""
+    assert "stdin" not in kwargs

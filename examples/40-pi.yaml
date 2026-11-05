@@ -1,0 +1,30 @@
+# Example 40: pi CLI agent
+# Tests: cli-agent: pi with ephemeral sessions, skip-confirmations, and a validator.
+# Same workflow shape as the other provider demos.
+
+directory: /tmp
+
+cli-agent: pi
+cli-agent-config:
+  skip-confirmations: true
+  model: zai/glm-5.1
+  timeout: 300
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-40"
+
+task:
+  - setup:
+      prompt: |
+        Create {{output-dir}} and write {{output-dir}}/setup.log with:
+        "pi adapter test
+        User: {{user}}
+        Timestamp: {{datetime}}"
+
+  - summarize:
+      prompt: |
+        Read {{output-dir}}/setup.log and write {{output-dir}}/SUMMARY.txt with
+        a one-line summary of it.
+      validate:
+        - file-exists: "{{output-dir}}/SUMMARY.txt"
+        - file-not-empty: "{{output-dir}}/SUMMARY.txt"
