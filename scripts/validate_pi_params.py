@@ -14,6 +14,8 @@ Exit code 0 means every case passed. Any failure prints the command, exit code,
 and output tail so the mismatch is obvious.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
