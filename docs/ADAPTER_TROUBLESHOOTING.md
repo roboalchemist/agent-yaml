@@ -85,6 +85,33 @@ Requires OpenCode v2.x (`--standalone`/`--auto` do not exist in v1).
 The adapter feeds an empty stdin instead of `/dev/null`, because print mode can hang on `/dev/null`
 in some pi versions.
 
+pi reads custom OpenAI-compatible providers from `~/.pi/agent/models.json`. That is the way to point
+it at a gateway or a self-hosted endpoint:
+
+```json
+{
+  "providers": {
+    "gateway": {
+      "baseUrl": "https://gateway.example.com/v1",
+      "api": "openai-completions",
+      "apiKey": "GATEWAY_API_KEY",
+      "models": [{ "id": "vendor/model-name" }]
+    }
+  }
+}
+```
+
+The provider name becomes the first segment of the model reference:
+
+```yaml
+cli-agent: pi
+cli-agent-config:
+  model: gateway/vendor/model-name
+```
+
+`apiKey` accepts an environment variable name, a `!command` that prints the key, or a literal value.
+`--provider gateway --model vendor/model-name` is the same selection written as two flags.
+
 ### Claude
 
 | Config | Emission |
