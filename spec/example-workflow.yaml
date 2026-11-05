@@ -25,7 +25,6 @@ template-variables:
   topic-doc: "{{doc-root}}/{{topic}}.md"
   topic-doc-root: "{{doc-root}}/{{topic}}"
   intro-doc: "{{topic-doc-root}}/intro.md"
-  how-to-write-a-doc-guide: "reference/writing-docs.md"
   todo-file: "todo.txt"
 
 # ensure we have the following mcps installed and are viable before running
@@ -49,7 +48,6 @@ includes:
   validate-additions: "After the additions have been made, use sub-agents to validate the just-written section by cross-referencing claims against gathered documents, checking consistency with previous sections, verifying all statements are supported by evidence, ensuring terminology consistency, and confirming section completeness."
   cite-code: "Cite the code"
   use-agent: "Look through the agent profiles, and use the one most appropriate for the task."
-  use-doc-guide: "Read the document {{how-to-write-a-doc-guide}} in full so you understand how we like to write guides before doing any work."
   do-next-todo: "Look for the next todo item in the file {{todo-file}} and find the next open todo item [ ] (unassigned and uncompleted). It should not be [-] (in-progress) or [x] (completed). For the next open todo item, mark it as in progress ([-]). If there are no more todo elements, you may exit immediately."
   validate: "After all additions have been made, then validate the document by cross-referencing claims against gathered documents, checking consistency with previous sections, verifying all statements are supported by evidence, ensuring terminology consistency, and confirming section completeness."
   read-current-topic-doc: "Look at the current state of the topic document at {{topic-doc}} its entirety to understand what the current state of it is before editing it."
@@ -115,13 +113,11 @@ task:
       prompt: "Create the initial topic document at {{topic-doc}}. Start by filling out the section headers and Table of Contents. Do not fill in the Overview or Background sections yet, or any other sections - these will be written last."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
   - write-terminology:
       prompt: "Fill out the Terminology section of topic document {{topic-doc}} with specific terminology for {{topic}}."
       include:
         - use-intro
-        - use-doc-guide
         - read-current-doc
         - think-research
         - validate
@@ -130,7 +126,6 @@ task:
       prompt: "Fill out the Concepts section of topic document {{topic-doc}}. Only give brief descriptions of the concepts."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -139,7 +134,6 @@ task:
       prompt: "Fill out the History section of topic document {{topic-doc}} based on the timeline document at {{topic-doc-root}}/timeline.md, projects done to rework it, what changes accomplished, etc."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -148,7 +142,6 @@ task:
       prompt: "Fill out the Contract section under Implementation Details section describing what is guaranteed and not guaranteed by {{topic}}."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -157,7 +150,6 @@ task:
       prompt: "Research the codebase for database models related to {{topic}}, if any. If there are any, fill out the Data Model section under Backend, citing specific elements about the data-model files in the service."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -166,7 +158,6 @@ task:
       prompt: "Research the codebase for example-service API endpoints related to {{topic}}, if any. If there are any, fill out the API Endpoints section with specific endpoint details and code references."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -175,7 +166,6 @@ task:
       prompt: "Fill out the Permissions section with specific permission requirements. First read the document on permissions in {{doc-root}}."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -184,7 +174,6 @@ task:
       prompt: "Research public-api endpoints related to {{topic}}, if any. If there are any, fill out the public-api endpoints section with specific endpoint details."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -193,7 +182,6 @@ task:
       prompt: "Research the device-service-common service folder for firmware code related to {{topic}}. Fill out the device-service-common section with relevant firmware implementation details."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -202,7 +190,6 @@ task:
       prompt: "Research the device-service folders for firmware code related to {{topic}}. Fill out the device-service section with relevant firmware implementation details."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -211,7 +198,6 @@ task:
       prompt: "Fill out the `Related Merged Reference Pull Requests` section in the Appendix with relevant PRs from {{topic-doc-root}}/PRs.md and their descriptions."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -220,7 +206,6 @@ task:
       prompt: "Fill out the `Related Notion Docs` section in the Appendix with relevant PRs from {{topic-doc-root}}/notion_pages.md and their descriptions."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -229,7 +214,6 @@ task:
       prompt: "Fill out the `Linear Projects` section in the Appendix with relevant PRs from {{topic-doc-root}}/linear_projects.md and their descriptions."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -238,7 +222,6 @@ task:
       prompt: "Fill out the `Linear Issues` section in the Appendix with relevant PRs from {{topic-doc-root}}/linear_issues.md and their descriptions."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -247,7 +230,6 @@ task:
       prompt: "Fill out the `RFCs` section in the Appendix with relevant PRs from {{topic-doc-root}}/RFCs.md and their descriptions."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -256,7 +238,6 @@ task:
       prompt: "Write the Background section as a consolidation summary based on all gathered information."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -265,7 +246,6 @@ task:
       prompt: "Write the Overview section as the final consolidation summary that gives a brief overview of {{topic}} and what it does."
       include:
         - use-intro
-        - use-doc-guide
         - think-research
         - validate
         - style
@@ -279,6 +259,5 @@ task:
         mark-in-progress: true
         mark-complete: true
       include:
-        - use-doc-guide
         - think-research
         - validate
