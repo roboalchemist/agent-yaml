@@ -6,19 +6,29 @@ creates a GitHub release.
 
 ## One-time PyPI setup
 
-The workflow publishes with PyPI trusted publishing, so there is no API token in the repository.
+The publish step authenticates with the `PYPI_API_TOKEN` repository secret. The value is the upload
+token stored in the 1Password item **PyPi** in the **Agents** vault (field `Upload Token`), set with:
 
-1. Sign in to PyPI and open **Publishing**, then add a pending publisher for a new project:
-   - PyPI project name: `agent-yaml`
-   - Owner: `roboalchemist`
-   - Repository: `agent-yaml`
-   - Workflow name: `release.yml`
-   - Environment name: `pypi`
-2. In the GitHub repository, create the `pypi` environment under **Settings, Environments**. Adding
-   required reviewers is optional and recommended.
+```bash
+op read "op://Agents/iqgk2lpkje23sl57givoy7a2jy/l3d67zx6gij7mtgh3ndkyyvwia" --no-newline \
+  | gh secret set PYPI_API_TOKEN
+```
 
-After the first successful publish the pending publisher becomes a normal publisher, and later tags
-publish without changes.
+The `pypi` environment exists and is attached to the publish job. Adding required reviewers there is
+optional and recommended.
+
+### Moving to trusted publishing
+
+Trusted publishing removes the stored token. On PyPI, add a pending publisher for the project:
+
+- PyPI project name: `agent-yaml`
+- Owner: `roboalchemist`
+- Repository: `agent-yaml`
+- Workflow name: `release.yml`
+- Environment name: `pypi`
+
+Then delete the `password:` line from the publish step and remove the `PYPI_API_TOKEN` secret. The
+job already carries `id-token: write`, so OIDC works without further changes.
 
 ## Cutting a release
 
