@@ -1,6 +1,7 @@
 """Schema validation for the pi adapter's cli-agent-config options."""
 
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
@@ -109,6 +110,8 @@ def _load_matrix():
     path = REPO_ROOT / "scripts" / "validate_pi_params.py"
     spec = importlib.util.spec_from_file_location("validate_pi_params", path)
     module = importlib.util.module_from_spec(spec)
+    # Register before exec so dataclass field resolution can find the module.
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
