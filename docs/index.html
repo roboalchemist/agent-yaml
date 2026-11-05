@@ -246,7 +246,7 @@ agent-yaml run hello.yaml             # call the agent</code></pre>
           <tbody>
             <tr><td><code>directory</code></td><td>string</td><td>yes</td><td>Working directory for every task. <code>~</code> expands, and the path must exist.</td></tr>
             <tr><td><code>task</code></td><td>list</td><td>yes</td><td>The task tree.</td></tr>
-            <tr><td><code>cli-agent</code></td><td>string</td><td>no</td><td><code>opencode</code>, <code>claude</code> (default), <code>gemini</code>, <code>qwen</code>, or <code>codex</code>.</td></tr>
+            <tr><td><code>cli-agent</code></td><td>string</td><td>no</td><td><code>opencode</code>, <code>claude</code> (default), <code>gemini</code>, <code>qwen</code>, <code>codex</code>, or <code>pi</code>.</td></tr>
             <tr><td><code>cli-agent-config</code></td><td>map</td><td>no</td><td><code>model</code>, <code>timeout</code>, <code>skip-confirmations</code>, <code>additional-dirs</code>, <code>mcp-config-file</code>, <code>raw-args</code>.</td></tr>
             <tr><td><code>environment</code></td><td>map</td><td>no</td><td>Environment variables inherited by every task.</td></tr>
             <tr><td><code>template-variables</code></td><td>map</td><td>no</td><td>User variables, resolved in dependency order.</td></tr>
@@ -491,6 +491,7 @@ task:
             <tr><td><code>gemini</code></td><td><code>--yolo</code></td><td><code>--model</code></td><td><code>--include-directories</code> from <code>additional-dirs</code>.</td></tr>
             <tr><td><code>qwen</code></td><td><code>--yolo</code></td><td><code>--model</code></td><td><code>--include-directories</code> from <code>additional-dirs</code>.</td></tr>
             <tr><td><code>codex</code></td><td><code>--full-auto</code></td><td><code>-m</code></td><td>Uses only the first <code>additional-dirs</code> entry.</td></tr>
+            <tr><td><code>pi</code></td><td><code>--approve</code></td><td><code>--model provider/id</code></td><td>Runs <code>pi -p</code> with <code>--no-session</code> unless a session is configured.</td></tr>
           </tbody>
         </table>
       </div>
