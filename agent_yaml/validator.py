@@ -13,7 +13,7 @@ Validation includes:
 Reference: spec/YAML_SPEC.md for schema requirements.
 """
 
-from src.includes import CircularIncludeError, detect_circular_includes
+from agent_yaml.includes import CircularIncludeError, detect_circular_includes
 
 
 class ValidationError(Exception):

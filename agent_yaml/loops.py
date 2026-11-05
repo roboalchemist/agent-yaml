@@ -1750,7 +1750,7 @@ class FileItem(dict):
     Dict that renders as file path when converted to string.
 
     This allows {{loop.item}} to work as both:
-    - A string (renders as path): "{{loop.item}}" -> "src/index.ts"
+    - A string (renders as path): "{{loop.item}}" -> "agent_yaml/index.ts"
     - A dict (access properties): "{{loop.item.filename}}" -> "index.ts"
     """
 
@@ -2094,7 +2094,7 @@ class GlobLoop(BaseLoop):
         Get files matching glob pattern with optional exclusions.
 
         Args:
-            pattern: Glob pattern (e.g., "src/**/*.py")
+            pattern: Glob pattern (e.g., "agent_yaml/**/*.py")
             exclude_patterns: List of patterns to exclude (optional)
 
         Returns:

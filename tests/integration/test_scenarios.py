@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.cli import run_workflow
+from agent_yaml.cli import run_workflow
 from tests.support.helpers import write_workflow
 from tests.support.scenarios import SCENARIOS
 

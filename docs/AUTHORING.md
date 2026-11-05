@@ -151,7 +151,7 @@ ensure:
 
 `tools` are checked with `shutil.which` before the first task; all missing tools are reported
 together. `mcps` detection is **not implemented** — each entry logs a warning and passes
-(`src/ensure.py`).
+(`agent_yaml/ensure.py`).
 
 ---
 
@@ -222,7 +222,7 @@ failures follow the same strategy when `retry.on-validation-failure` is exhauste
 
 ---
 
-Source of truth: `src/cli.py` (`run_workflow`, CLI flags), `src/executor.py` (task execution,
-`on-error`, env merge), `src/includes.py`, `src/ensure.py`, `src/validator.py`.
+Source of truth: `agent_yaml/cli.py` (`run_workflow`, CLI flags), `agent_yaml/executor.py` (task execution,
+`on-error`, env merge), `agent_yaml/includes.py`, `agent_yaml/ensure.py`, `agent_yaml/validator.py`.
 Related: `spec/YAML_SPEC.md` (authoritative field reference) and `examples/01-basic.yaml` for the
 smallest complete workflow.

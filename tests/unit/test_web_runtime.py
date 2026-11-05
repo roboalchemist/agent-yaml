@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 
-from src.web.app import create_app
-from src.web.db import AgentYamlDB
-from src.web.runtime import RunManager
-from src.web.scheduler import compute_next_run, parse_interval_seconds
+from agent_yaml.web.app import create_app
+from agent_yaml.web.db import AgentYamlDB
+from agent_yaml.web.runtime import RunManager
+from agent_yaml.web.scheduler import compute_next_run, parse_interval_seconds
 
 
 def test_db_records_events_and_node_state(tmp_path):
@@ -82,7 +82,7 @@ def test_run_manager_persists_events_from_event_sink(tmp_path, monkeypatch):
             )
             return 0
 
-        monkeypatch.setattr("src.web.runtime.run_workflow", fake_run_workflow)
+        monkeypatch.setattr("agent_yaml.web.runtime.run_workflow", fake_run_workflow)
 
         run = manager.start_run(
             workflow["id"],

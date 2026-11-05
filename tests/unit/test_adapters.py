@@ -1,4 +1,4 @@
-"""Unit tests for src/adapters: task config → agent argv, availability checks, get_adapter()."""
+"""Unit tests for agent_yaml/adapters: task config → agent argv, availability checks, get_adapter()."""
 
 import inspect
 import shutil
@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.adapters import (
+from agent_yaml.adapters import (
     ClaudeAdapter,
     CLINotFoundError,
     CodexAdapter,

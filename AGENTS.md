@@ -3,7 +3,7 @@
 Agent instructions for `agent-yaml`: a Python CLI that runs declarative YAML workflows by spawning an
 AI coding-agent CLI (`opencode`, `claude`, `gemini`, `qwen`, `codex`) once per task.
 
-The import package is literally named `src` (`from src.executor import execute_single_task`). Do not
+The import package is `agent_yaml` (`from agent_yaml.executor import execute_single_task`). Do not
 rename it.
 
 ## Commands
@@ -40,7 +40,7 @@ stale — do not work around it by exporting a different key.
 4. **Add a feature scenario to `tests/support/scenarios.py`** when adding user-visible behaviour — the
    integration tier (fake agent) and live tier (real model) both run the same scenarios.
 5. Test style: plain pytest functions, `@pytest.mark.parametrize`, `tmp_path`, no `unittest.TestCase`,
-   no sleeps over ~0.2s. One `src` module per `tests/unit/test_<module>.py`.
+   no sleeps over ~0.2s. One `agent_yaml` module per `tests/unit/test_<module>.py`.
 6. Only put a file in `tests/fixtures/` when two or more tests read it; otherwise generate it in
    `tmp_path`. The suite keeps 4 fixtures on purpose.
 
@@ -48,19 +48,19 @@ stale — do not work around it by exporting a different key.
 
 | Path | What lives there |
 |------|------------------|
-| `src/cli.py` | argparse, `run_workflow()`, dry-run plan, env-file loading, task-tree walk |
-| `src/parser.py` | YAML parse (`safe_load`) |
-| `src/validator.py` | schema validation; `VALID_CLI_AGENTS` |
-| `src/variables.py`, `src/utils.py` | reserved/user variables, `{{var}}` interpolation, expressions |
-| `src/includes.py` | inline + file includes, cycle detection |
-| `src/executor.py` | single-task subprocess, timeout, debug streaming, env merge |
-| `src/loops.py` | todo-list/CSV/glob/JSON/JSONL loops, workers, checkpoints |
-| `src/task_validators.py` | post-task validators |
-| `src/skip_conditions.py`, `src/when_conditions.py` | pre-task gating |
-| `src/ensure.py` | pre-flight tool checks (MCPs are a warning-only stub) |
-| `src/events.py`, `src/graph.py` | event emission + task-tree graph for the web runner |
-| `src/web/` | FastAPI interface runner: app, SSE, SQLite store, scheduler, `static/webgl.js` stage-graph renderer, trace UI (`agent-yaml serve`) |
-| `src/adapters/` | `base.py` + `opencode.py`, `claude.py`, `gemini.py`, `qwen.py`, `codex.py` |
+| `agent_yaml/cli.py` | argparse, `run_workflow()`, dry-run plan, env-file loading, task-tree walk |
+| `agent_yaml/parser.py` | YAML parse (`safe_load`) |
+| `agent_yaml/validator.py` | schema validation; `VALID_CLI_AGENTS` |
+| `agent_yaml/variables.py`, `agent_yaml/utils.py` | reserved/user variables, `{{var}}` interpolation, expressions |
+| `agent_yaml/includes.py` | inline + file includes, cycle detection |
+| `agent_yaml/executor.py` | single-task subprocess, timeout, debug streaming, env merge |
+| `agent_yaml/loops.py` | todo-list/CSV/glob/JSON/JSONL loops, workers, checkpoints |
+| `agent_yaml/task_validators.py` | post-task validators |
+| `agent_yaml/skip_conditions.py`, `agent_yaml/when_conditions.py` | pre-task gating |
+| `agent_yaml/ensure.py` | pre-flight tool checks (MCPs are a warning-only stub) |
+| `agent_yaml/events.py`, `agent_yaml/graph.py` | event emission + task-tree graph for the web runner |
+| `agent_yaml/web/` | FastAPI interface runner: app, SSE, SQLite store, scheduler, `static/webgl.js` stage-graph renderer, trace UI (`agent-yaml serve`) |
+| `agent_yaml/adapters/` | `base.py` + `opencode.py`, `claude.py`, `gemini.py`, `qwen.py`, `codex.py` |
 | `tests/` | tiers — see `tests/README.md` |
 | `examples/`, `tasks/` | user-facing workflows (dry-run by tests) |
 | `spec/` | authoritative specs (`YAML_SPEC.md`, `PROJECT_SPECS.md`, `ADAPTER_SPEC.md`) |
@@ -91,9 +91,9 @@ stale — do not work around it by exporting a different key.
 
 - Catalog: `/api/workflows/discover` lists every `examples/*.yaml` and `tasks/*.yaml` with agent,
   directory, stage count and description; selecting one imports it and renders the graph.
-- The stage graph is WebGL2 (`src/web/static/webgl.js`). Keep node ids in events equal to graph node
+- The stage graph is WebGL2 (`agent_yaml/web/static/webgl.js`). Keep node ids in events equal to graph node
   ids or the highlight/focus breaks. DOM/SVG fallback exists for browsers without WebGL2.
-- Callbacks are emitted through `src/events.py` and streamed over SSE (`/api/runs/{id}/stream`).
+- Callbacks are emitted through `agent_yaml/events.py` and streamed over SSE (`/api/runs/{id}/stream`).
   Event vocabulary: `workflow_*`, `loop_*` (+ per-item `loop_item_*`), `task_*`, `validators_*`,
   `run_finished`. Never emit the same id twice in the stream (runtime dedupes by id).
 - Nodes are colored from event `status`; `task_started` also increments the attempt counter.

@@ -1,10 +1,10 @@
-"""Unit tests for src/includes.py: include files, prompt composition, include cycles."""
+"""Unit tests for agent_yaml/includes.py: include files, prompt composition, include cycles."""
 
 import os
 
 import pytest
 
-from src.includes import (
+from agent_yaml.includes import (
     CircularIncludeError,
     append_includes_to_prompt,
     detect_circular_includes,

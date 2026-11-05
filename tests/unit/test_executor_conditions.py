@@ -1,5 +1,5 @@
 """
-Unit tests for skip-if and when handling in src.executor.execute_single_task.
+Unit tests for skip-if and when handling in agent_yaml.executor.execute_single_task.
 
 Both are checked before the agent runs, skip-if first. Relative skip-if paths resolve
 against the task's working directory (task `directory`, else the workflow `directory`).
@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.executor import ExecutionError, execute_single_task
-from src.skip_conditions import check_skip_conditions
+from agent_yaml.executor import ExecutionError, execute_single_task
+from agent_yaml.skip_conditions import check_skip_conditions
 from tests.support.helpers import completed
 
 WHEN_ERROR = "Task 'my-task' when condition error: Failed to evaluate when expression: boom"
@@ -302,7 +302,7 @@ class TestWhen:
     ):
         task = {"prompt": "Deploy", "when": "{{ready}}"}
 
-        with patch("src.when_conditions.evaluate_expression", side_effect=RuntimeError("boom")):
+        with patch("agent_yaml.when_conditions.evaluate_expression", side_effect=RuntimeError("boom")):
             with pytest.raises(ExecutionError, match=re.escape(WHEN_ERROR)):
                 execute_single_task("my-task", task, {"ready": True}, mock_adapter, workflow_config)
 
@@ -320,7 +320,7 @@ class TestWhen:
     ):
         task = {"prompt": "Deploy", "when": "{{ready}}", "on-error": strategy}
 
-        with patch("src.when_conditions.evaluate_expression", side_effect=RuntimeError("boom")):
+        with patch("agent_yaml.when_conditions.evaluate_expression", side_effect=RuntimeError("boom")):
             result = execute_single_task(
                 "my-task", task, {"ready": True}, mock_adapter, workflow_config
             )

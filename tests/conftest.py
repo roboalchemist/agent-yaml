@@ -16,7 +16,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.adapters.base import BaseAdapter
+from agent_yaml.adapters.base import BaseAdapter
 from tests.support.helpers import FIXTURES_DIR, REPO_ROOT, SUPPORT_DIR
 
 LIVE_DIR = Path(__file__).resolve().parent / "live"

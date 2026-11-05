@@ -187,14 +187,14 @@ overrides them, and `{{env.NAME}}` reads the merged environment.
 
 ## How a run works
 
-1. **Parse** (`src/parser.py`) the YAML with `yaml.safe_load`.
-2. **Validate** (`src/validator.py`) required fields, task-tree shape, loop, validator, skip-if,
+1. **Parse** (`agent_yaml/parser.py`) the YAML with `yaml.safe_load`.
+2. **Validate** (`agent_yaml/validator.py`) required fields, task-tree shape, loop, validator, skip-if,
    when, and retry configuration, plus adapter option names.
-3. **Resolve includes** (`src/includes.py`) and **variables** (`src/variables.py`,
-   `src/utils.py`). Reserved variables are injected, user variables resolve in dependency order,
+3. **Resolve includes** (`agent_yaml/includes.py`) and **variables** (`agent_yaml/variables.py`,
+   `agent_yaml/utils.py`). Reserved variables are injected, user variables resolve in dependency order,
    and cycles are rejected.
-4. **Check prerequisites** (`src/ensure.py`) with `shutil.which` before anything runs.
-5. **Execute** (`src/executor.py`) the task tree. Array items run in order, mapping keys run
+4. **Check prerequisites** (`agent_yaml/ensure.py`) with `shutil.which` before anything runs.
+5. **Execute** (`agent_yaml/executor.py`) the task tree. Array items run in order, mapping keys run
    concurrently in a `ThreadPoolExecutor`, and each task is one `subprocess.run` with a timeout.
 6. **Validate output**, then run the loop's next item or checkpoint its progress.
 
@@ -239,7 +239,7 @@ and [spec/ADAPTER_SPEC.md](spec/ADAPTER_SPEC.md) for the contract.
 ```bash
 pip install -e ".[dev]"   # pytest, ruff, coverage
 pytest -q                 # hermetic, no model calls
-ruff check src tests
+ruff check agent_yaml tests
 pip install -e ".[docs]"  # mkdocs
 mkdocs serve              # preview docs/ at http://127.0.0.1:8000
 ```

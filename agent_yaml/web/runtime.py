@@ -9,10 +9,10 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-from src.cli import run_workflow
-from src.graph import workflow_to_graph_file
-from src.web.db import AgentYamlDB, utc_now_iso
-from src.web.scheduler import DEFAULT_TIMEZONE, compute_next_run
+from agent_yaml.cli import run_workflow
+from agent_yaml.graph import workflow_to_graph_file
+from agent_yaml.web.db import AgentYamlDB, utc_now_iso
+from agent_yaml.web.scheduler import DEFAULT_TIMEZONE, compute_next_run
 
 
 class RunManager:

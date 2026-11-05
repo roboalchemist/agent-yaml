@@ -1,8 +1,8 @@
-"""Workflow schema validation (src/validator.py) through the public validate_workflow()."""
+"""Workflow schema validation (agent_yaml/validator.py) through the public validate_workflow()."""
 
 import pytest
 
-from src.validator import ValidationError, validate_workflow
+from agent_yaml.validator import ValidationError, validate_workflow
 
 
 def yaml_keys(fields):
@@ -668,7 +668,7 @@ class TestLoopConfig:
         [
             {"type": "todo-list", "source": "todos.md"},
             {"type": "csv", "source": "users.csv"},
-            {"type": "glob", "pattern": "src/**/*.py"},
+            {"type": "glob", "pattern": "agent_yaml/**/*.py"},
             {"type": "json", "source": "users.json"},
             {"type": "jsonl", "source": "events.jsonl"},
         ],

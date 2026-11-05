@@ -17,14 +17,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import yaml
 
-from src.adapters import CLINotFoundError, UnsupportedCLIError, get_adapter
-from src.ensure import EnsureValidationError, validate_ensure_block
-from src.events import emit_event
-from src.executor import ExecutionError, execute_single_task
-from src.loops import CSVLoop, GlobLoop, JsonLoop, TodoListLoop
-from src.parser import parse_workflow
-from src.validator import ValidationError, validate_workflow
-from src.variables import (
+from agent_yaml.adapters import CLINotFoundError, UnsupportedCLIError, get_adapter
+from agent_yaml.ensure import EnsureValidationError, validate_ensure_block
+from agent_yaml.events import emit_event
+from agent_yaml.executor import ExecutionError, execute_single_task
+from agent_yaml.loops import CSVLoop, GlobLoop, JsonLoop, TodoListLoop
+from agent_yaml.parser import parse_workflow
+from agent_yaml.validator import ValidationError, validate_workflow
+from agent_yaml.variables import (
     CircularDependencyError,
     ReservedVariables,
     UndefinedVariableError,
@@ -951,7 +951,7 @@ def main():
     elif args.command == "serve":
         try:
             import uvicorn
-            from src.web.app import create_app
+            from agent_yaml.web.app import create_app
         except Exception as e:
             print(
                 "Error: web UI dependencies are missing. Install with: "

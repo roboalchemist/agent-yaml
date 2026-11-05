@@ -1,7 +1,7 @@
 """Loop types: todo-list, csv, glob, json/jsonl, and checkpoint management.
 
 The agent is always mocked: ``executor.execute_single_task`` is patched where
-``src/loops.py`` imports it (inside each ``execute``), so these tests assert loop
+``agent_yaml/loops.py`` imports it (inside each ``execute``), so these tests assert loop
 plumbing — parsing, variables, retries, checkpoints — and never spawn a process.
 
 Parallel execution lives in ``test_loops_parallel.py``.
@@ -12,8 +12,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.executor import ExecutionError
-from src.loops import (
+from agent_yaml.executor import ExecutionError
+from agent_yaml.loops import (
     CheckpointManager,
     CheckpointValidationError,
     CSVLoop,
@@ -27,7 +27,7 @@ from src.loops import (
 @pytest.fixture
 def run_task():
     """Patch execute_single_task; one recorded call per agent run."""
-    with patch("src.executor.execute_single_task") as mock:
+    with patch("agent_yaml.executor.execute_single_task") as mock:
         mock.return_value = {"status": "success", "exit_code": 0}
         yield mock
 
@@ -203,7 +203,7 @@ def test_todo_execute_dry_run_reports_without_running(tmp_path, run_task, adapte
 
 def test_todo_execute_retries_until_success(tmp_path, adapter):
     path = _todo(tmp_path, "- [ ] one\n")
-    with patch("src.executor.execute_single_task") as mock:
+    with patch("agent_yaml.executor.execute_single_task") as mock:
         mock.side_effect = [
             ExecutionError("first"),
             ExecutionError("second"),
@@ -224,7 +224,7 @@ def test_todo_execute_retries_until_success(tmp_path, adapter):
 
 def test_todo_execute_abort_raises_after_attempts(tmp_path, adapter):
     path = _todo(tmp_path, "- [ ] one\n")
-    with patch("src.executor.execute_single_task") as mock:
+    with patch("agent_yaml.executor.execute_single_task") as mock:
         mock.side_effect = ExecutionError("boom")
 
         with pytest.raises(ExecutionError, match="boom"):
@@ -241,7 +241,7 @@ def test_todo_execute_abort_raises_after_attempts(tmp_path, adapter):
 
 def test_todo_execute_skip_records_failure_and_continues(tmp_path, adapter):
     path = _todo(tmp_path, "- [ ] one\n- [ ] two\n")
-    with patch("src.executor.execute_single_task") as mock:
+    with patch("agent_yaml.executor.execute_single_task") as mock:
         mock.side_effect = [ExecutionError("boom"), {"status": "success", "exit_code": 0}]
 
         result = TodoListLoop({}, {}).execute(
@@ -509,7 +509,7 @@ def test_csv_execute_checkpoint_written_after_each_row(tmp_path, run_task, adapt
 
 def test_csv_execute_retry_then_partial(tmp_path, adapter):
     path = _csv(tmp_path, "name\na\nb\n")
-    with patch("src.executor.execute_single_task") as mock:
+    with patch("agent_yaml.executor.execute_single_task") as mock:
         mock.side_effect = [
             ExecutionError("boom"),
             ExecutionError("boom"),
@@ -860,7 +860,7 @@ def test_csv_parallel_loop_emits_item_callbacks(tmp_path, run_task, adapter):
 def test_loop_emits_failed_callback(tmp_path, adapter):
     path = _csv(tmp_path, "name\na\n")
     events = []
-    with patch("src.executor.execute_single_task") as mock:
+    with patch("agent_yaml.executor.execute_single_task") as mock:
         mock.side_effect = ExecutionError("boom")
 
         CSVLoop({}, {}).execute(

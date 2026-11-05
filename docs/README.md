@@ -21,14 +21,14 @@ authoritative field-by-field specification remains [`spec/`](../spec).
 
 | Page | Covers | Source of truth |
 |------|--------|-----------------|
-| [CLI.md](CLI.md) | Commands, flags, exit codes, environment precedence, retries, troubleshooting, known limitations | `src/cli.py` |
-| [AUTHORING.md](AUTHORING.md) | Workflow skeleton, top-level fields, task tree, includes, `ensure`, CLI overrides, failure handling, authoring checklist | `src/cli.py`, `src/executor.py`, `src/includes.py`, `src/ensure.py` |
-| [TEMPLATING.md](TEMPLATING.md) | The two interpolation paths, hyphen/undefined traps, available variables, Jinja2 features, whitespace, `when` semantics, env precedence | `src/utils.py`, `src/variables.py`, `src/when_conditions.py` |
-| [LOOPS.md](LOOPS.md) | All five loop types, field reference, the `skip-header` × `columns` matrix, JSON filters, checkpoints and resuming | `src/loops.py`, `src/validator.py` |
-| [PARALLEL_LOOPS.md](PARALLEL_LOOPS.md) | `workers`, `directory-pool`, `git-worktrees`, worker variables, performance and error behaviour | `src/loops.py` |
-| [VALIDATORS.md](VALIDATORS.md) | Six validator kinds, path resolution, `command` details, retry strategies, execution order, events | `src/task_validators.py`, `src/executor.py` |
-| [INTERFACE_RUNNER.md](INTERFACE_RUNNER.md) | `serve` flags, HTTP API, SSE contract, event vocabulary, node-id invariant, SQLite schema, scheduler | `src/web/*`, `src/events.py`, `src/graph.py` |
-| [ADAPTER_TROUBLESHOOTING.md](ADAPTER_TROUBLESHOOTING.md) | Symptom → cause → fix, per-adapter flag mapping, known-breaking flags, adding an adapter | `src/adapters/*` |
+| [CLI.md](CLI.md) | Commands, flags, exit codes, environment precedence, retries, troubleshooting, known limitations | `agent_yaml/cli.py` |
+| [AUTHORING.md](AUTHORING.md) | Workflow skeleton, top-level fields, task tree, includes, `ensure`, CLI overrides, failure handling, authoring checklist | `agent_yaml/cli.py`, `agent_yaml/executor.py`, `agent_yaml/includes.py`, `agent_yaml/ensure.py` |
+| [TEMPLATING.md](TEMPLATING.md) | The two interpolation paths, hyphen/undefined traps, available variables, Jinja2 features, whitespace, `when` semantics, env precedence | `agent_yaml/utils.py`, `agent_yaml/variables.py`, `agent_yaml/when_conditions.py` |
+| [LOOPS.md](LOOPS.md) | All five loop types, field reference, the `skip-header` × `columns` matrix, JSON filters, checkpoints and resuming | `agent_yaml/loops.py`, `agent_yaml/validator.py` |
+| [PARALLEL_LOOPS.md](PARALLEL_LOOPS.md) | `workers`, `directory-pool`, `git-worktrees`, worker variables, performance and error behaviour | `agent_yaml/loops.py` |
+| [VALIDATORS.md](VALIDATORS.md) | Six validator kinds, path resolution, `command` details, retry strategies, execution order, events | `agent_yaml/task_validators.py`, `agent_yaml/executor.py` |
+| [INTERFACE_RUNNER.md](INTERFACE_RUNNER.md) | `serve` flags, HTTP API, SSE contract, event vocabulary, node-id invariant, SQLite schema, scheduler | `agent_yaml/web/*`, `agent_yaml/events.py`, `agent_yaml/graph.py` |
+| [ADAPTER_TROUBLESHOOTING.md](ADAPTER_TROUBLESHOOTING.md) | Symptom → cause → fix, per-adapter flag mapping, known-breaking flags, adding an adapter | `agent_yaml/adapters/*` |
 | [docstring-workflow-validators.md](docstring-workflow-validators.md) | Worked example: the validator stack in `tasks/docstring-pr-review.yaml` | that workflow |
 
 ## Related Documentation

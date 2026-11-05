@@ -1,5 +1,5 @@
 """
-Integration tests for the agent-yaml entry point (src/cli.py).
+Integration tests for the agent-yaml entry point (agent_yaml/cli.py).
 
 Workflows are real YAML files in tmp_path, run through run_workflow() / main() with the
 deterministic fake `opencode` agent (fixture `fake_opencode`), which executes the
@@ -14,9 +14,9 @@ from unittest.mock import patch
 
 import pytest
 
-from src.adapters import UnsupportedCLIError
-from src.cli import main, parse_var_overrides, run_workflow
-from src.executor import ExecutionError
+from agent_yaml.adapters import UnsupportedCLIError
+from agent_yaml.cli import main, parse_var_overrides, run_workflow
+from agent_yaml.executor import ExecutionError
 from tests.support.helpers import bash_prompt, write_workflow
 
 ALLOWED_AGENTS = "['opencode', 'claude', 'gemini', 'qwen', 'codex']"
@@ -336,7 +336,7 @@ class TestRunWorkflowErrors:
         wf = make_workflow(tmp_path, [{"t": {"prompt": "hi"}}])
 
         with patch(
-            "src.cli.get_adapter", side_effect=UnsupportedCLIError("Unsupported CLI agent: 'x'")
+            "agent_yaml.cli.get_adapter", side_effect=UnsupportedCLIError("Unsupported CLI agent: 'x'")
         ):
             assert run_workflow(wf) == 1
 
@@ -356,7 +356,7 @@ class TestRunWorkflowErrors:
         """Top-level steps are groups that trap task errors, so the tree itself is mocked here."""
         wf = make_workflow(tmp_path, [{"t": {"prompt": "hi"}}])
 
-        with patch("src.cli.execute_task_tree", side_effect=error):
+        with patch("agent_yaml.cli.execute_task_tree", side_effect=error):
             assert run_workflow(wf) == 1
 
         assert message in capsys.readouterr().err
@@ -739,7 +739,7 @@ class TestMainArguments:
     def test_run_passes_defaults_to_run_workflow(self, tmp_path, monkeypatch):
         workflow = str(tmp_path / "workflow.yaml")
 
-        with patch("src.cli.run_workflow", return_value=0) as run:
+        with patch("agent_yaml.cli.run_workflow", return_value=0) as run:
             assert run_main(monkeypatch, "run", workflow) == 0
 
         run.assert_called_once()
@@ -797,7 +797,7 @@ class TestMainArguments:
     def test_run_flag_maps_to_run_workflow_argument(
         self, tmp_path, monkeypatch, flags, kwarg, value
     ):
-        with patch("src.cli.run_workflow", return_value=0) as run:
+        with patch("agent_yaml.cli.run_workflow", return_value=0) as run:
             assert run_main(monkeypatch, "run", str(tmp_path / "workflow.yaml"), *flags) == 0
 
         assert run.call_args.kwargs[kwarg] == value
@@ -887,7 +887,7 @@ class TestModuleEntryPoint:
         )
 
         result = subprocess.run(
-            [sys.executable, "-m", "src.cli", "run", wf, "--cli-agent", "opencode"],
+            [sys.executable, "-m", "agent_yaml.cli", "run", wf, "--cli-agent", "opencode"],
             cwd=tmp_path,
             env=os.environ,
             capture_output=True,

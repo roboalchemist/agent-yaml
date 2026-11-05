@@ -30,7 +30,7 @@ agent-yaml validate tasks/my-workflow.yaml --cli-agent codex
 |---------|--------------|-----|
 | Task "succeeds" instantly, does nothing | Prompt began with `-`, so the CLI printed help and exited 0. OpenCode's adapter guards this with `--`, others pass the prompt positionally. | Prefix the prompt with text, never a flag-like token (`Don't…`, `--…`). |
 | `error: unknown option '--full-auto'` (codex) | codex-cli 0.153.4 dropped flags the adapter still emits. | Remove `skip-confirmations` / `permissions` / `web-search` from `cli-agent-config`, or use `raw-args`. |
-| `error: unknown option '--allowed-mcp-server-names'` (claude) | `mcp-servers` is translated to a Gemini-only flag even for the Claude adapter (`src/adapters/claude.py:104`). | Don't set `mcp-servers` with `cli-agent: claude`; use `mcp-config-file` or `raw-args`. |
+| `error: unknown option '--allowed-mcp-server-names'` (claude) | `mcp-servers` is translated to a Gemini-only flag even for the Claude adapter (`agent_yaml/adapters/claude.py:104`). | Don't set `mcp-servers` with `cli-agent: claude`; use `mcp-config-file` or `raw-args`. |
 | Agent sees none of the workflow `environment:` values (OpenCode) | Running against the shared background server instead of a private one. | Keep `standalone` unset/true (the adapter passes `--standalone` by default); do not set `server`. |
 | Model ignored / provider error (OpenCode) | Model passed without `provider/` prefix. | Use `gateway/model-name`, `anthropic/claude-haiku-5-5`, … The adapter warns when `/` is missing. |
 | `additional-dirs` silently ignored (OpenCode) | `opencode run` has no equivalent flag. | Configure directories in `opencode.json`; the adapter logs a warning. |
@@ -74,7 +74,7 @@ Requires OpenCode v2.x (`--standalone`/`--auto` do not exist in v1).
 | `output-format` | `--output-format` (`stream-json` supported) |
 | `debug: true` | `--debug` |
 | prompt | `--print PROMPT` |
-| `mcp-servers` | `--allowed-mcp-server-names …` — **not a Claude flag**, current `claude` rejects it (`src/adapters/claude.py:104`) |
+| `mcp-servers` | `--allowed-mcp-server-names …` — **not a Claude flag**, current `claude` rejects it (`agent_yaml/adapters/claude.py:104`) |
 
 ### Gemini / Qwen
 
@@ -144,10 +144,10 @@ cli-agent-config:
 
 ## Adding a New Adapter
 
-1. Subclass `BaseAdapter` in `src/adapters/` and implement `build_command()` and
-   `check_available()` (`src/adapters/base.py`).
-2. Register it in `adapter_map` inside `src/adapters/__init__.py`.
-3. Add the name to `VALID_CLI_AGENTS` in `src/validator.py:35` — otherwise `validate` rejects it.
+1. Subclass `BaseAdapter` in `agent_yaml/adapters/` and implement `build_command()` and
+   `check_available()` (`agent_yaml/adapters/base.py`).
+2. Register it in `adapter_map` inside `agent_yaml/adapters/__init__.py`.
+3. Add the name to `VALID_CLI_AGENTS` in `agent_yaml/validator.py:35` — otherwise `validate` rejects it.
 4. Add argv unit tests and an `examples/NN-<agent>.yaml` so CI dry-runs it.
 5. Document the mapping table here and in `spec/ADAPTER_SPEC.md`.
 
@@ -178,7 +178,7 @@ cli-agent-config:
 
 ---
 
-Source of truth: `src/adapters/*.py` (per-CLI translation), `src/adapters/__init__.py` (registry),
-`src/executor.py` (argv construction, timeouts), `AGENTS.md` (known-breaking flags).
+Source of truth: `agent_yaml/adapters/*.py` (per-CLI translation), `agent_yaml/adapters/__init__.py` (registry),
+`agent_yaml/executor.py` (argv construction, timeouts), `AGENTS.md` (known-breaking flags).
 Related: `spec/ADAPTER_SPEC.md`, `examples/09-gemini.yaml`, `examples/10-qwen.yaml`,
 `examples/11-codex.yaml`.

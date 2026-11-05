@@ -5,9 +5,9 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
-from src.web.db import AgentYamlDB
-from src.web.runtime import RunManager
-from src.web.scheduler import DEFAULT_TIMEZONE, compute_next_run
+from agent_yaml.web.db import AgentYamlDB
+from agent_yaml.web.runtime import RunManager
+from agent_yaml.web.scheduler import DEFAULT_TIMEZONE, compute_next_run
 
 try:
     from pydantic import BaseModel, Field

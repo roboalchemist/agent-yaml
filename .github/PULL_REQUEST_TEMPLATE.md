@@ -6,7 +6,7 @@
 
 ```bash
 pytest -q
-ruff check src tests
+ruff check agent_yaml tests
 
 # manual check
 agent-yaml validate <workflow>.yaml
@@ -16,6 +16,6 @@ agent-yaml run <workflow>.yaml --dry-run
 ## Checklist
 
 - [ ] Tests cover the change (or explain why not)
-- [ ] `pytest -q` and `ruff check src tests` pass
+- [ ] `pytest -q` and `ruff check agent_yaml tests` pass
 - [ ] Docs updated when behaviour or fields changed
 - [ ] No secrets, private paths, or internal hostnames added

@@ -1,10 +1,10 @@
-"""Unit tests for src/when_conditions.py (task-level `when:` expressions)."""
+"""Unit tests for agent_yaml/when_conditions.py (task-level `when:` expressions)."""
 
 from unittest.mock import patch
 
 import pytest
 
-from src.when_conditions import WhenConditionError, check_when_condition
+from agent_yaml.when_conditions import WhenConditionError, check_when_condition
 
 EXECUTES = [
     pytest.param("{{env}} == 'production'", {"env": "production"}, id="equality"),
@@ -103,7 +103,7 @@ class TestCheckWhenCondition:
         assert result.evaluated_value is False
 
     def test_evaluation_failure_raises_when_condition_error(self):
-        with patch("src.when_conditions.evaluate_expression", side_effect=RuntimeError("boom")):
+        with patch("agent_yaml.when_conditions.evaluate_expression", side_effect=RuntimeError("boom")):
             with pytest.raises(WhenConditionError) as exc_info:
                 check_when_condition("{{env}} == 'prod'", {"env": "prod"})
 

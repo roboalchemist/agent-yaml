@@ -1,4 +1,4 @@
-from src.graph import COL_WIDTH, MARGIN_X, MARGIN_Y, ROW_HEIGHT, graph_to_workflow, workflow_to_graph
+from agent_yaml.graph import COL_WIDTH, MARGIN_X, MARGIN_Y, ROW_HEIGHT, graph_to_workflow, workflow_to_graph
 
 
 def test_workflow_to_graph_projects_parallel_and_loop_nodes():

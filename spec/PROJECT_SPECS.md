@@ -649,7 +649,7 @@ Iterate over files matching glob patterns.
 ```yaml
 loop:
   type: glob
-  pattern: "src/**/*.ts"
+  pattern: "agent_yaml/**/*.ts"
   exclude: ["**/*.test.ts"]  # Optional
   sort: modified             # Optional: name, modified, size, created
 ```
@@ -676,7 +676,7 @@ task:
       prompt: "Update imports in {{loop.item.path}} ({{loop.item.filename}}, iteration {{loop.index}})"
       loop:
         type: glob
-        pattern: "src/**/*.ts"
+        pattern: "agent_yaml/**/*.ts"
         exclude: ["**/*.test.ts"]
         sort: modified
 ```
@@ -715,10 +715,10 @@ task:
       prompt: "{{project}}: Process {{loop.item.path}} (iteration {{loop.index}}/{{loop.total}})"
       loop:
         type: glob
-        pattern: "src/**/*.ts"
+        pattern: "agent_yaml/**/*.ts"
 ```
 
-**Expands to:** `"myapp: Process src/index.ts (iteration 0/15)"`
+**Expands to:** `"myapp: Process agent_yaml/index.ts (iteration 0/15)"`
 
 ### Performance Considerations
 

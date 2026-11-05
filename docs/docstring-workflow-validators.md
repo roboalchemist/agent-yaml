@@ -106,7 +106,7 @@ ls -R /tmp/docstring-review-workspace-*/
 
 ### Validate workflow syntax
 ```bash
-python -m src.cli validate tasks/docstring-pr-review.yaml
+python -m agent_yaml.cli validate tasks/docstring-pr-review.yaml
 ```
 
 ### Run validator unit tests

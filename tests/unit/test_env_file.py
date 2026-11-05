@@ -1,10 +1,10 @@
-"""Unit tests for .env parsing in src/cli.py (parse_env_file, load_env_files)."""
+"""Unit tests for .env parsing in agent_yaml/cli.py (parse_env_file, load_env_files)."""
 
 import os
 
 import pytest
 
-from src.cli import EnvFileError, load_env_files, parse_env_file
+from agent_yaml.cli import EnvFileError, load_env_files, parse_env_file
 
 
 class TestParseEnvFile:

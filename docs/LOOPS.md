@@ -1,7 +1,7 @@
 # Loops
 
 A loop runs one task once per item: rows in a CSV, objects in JSON, files matching a glob, or
-markdown checkboxes. Five loop types exist (`src/validator.py:370`): `todo-list`, `csv`, `glob`,
+markdown checkboxes. Five loop types exist (`agent_yaml/validator.py:370`): `todo-list`, `csv`, `glob`,
 `json`, `jsonl`. This page is the field reference; for `workers`, `directory-pool` and
 `git-worktrees`, read [PARALLEL_LOOPS.md](PARALLEL_LOOPS.md) first.
 
@@ -28,7 +28,7 @@ task:
 
 `source` and `pattern` accept template variables and are expanded with `~` support. A source file may
 be created by an earlier task; on `--dry-run` a missing file prints a warning instead of failing
-(`src/loops.py:563`).
+(`agent_yaml/loops.py:563`).
 
 ---
 
@@ -47,7 +47,7 @@ task:
 ```
 
 - Recognises `- [ ]` (pending), `- [-]` (in progress), `- [x]` (done); only pending items run
-  (`src/loops.py:445`).
+  (`agent_yaml/loops.py:445`).
 - `mark-in-progress: true` rewrites the box to `- [-]` before the task runs; `mark-complete: true`
   rewrites it to `- [x]` after success.
 - Item fields: `text`, `number` (1-based over all checkboxes), `line` (1-based file line).
@@ -80,7 +80,7 @@ task:
 
 ### The `skip-header` × `columns` matrix
 
-These four combinations behave differently and are intentional (`src/loops.py:1687`):
+These four combinations behave differently and are intentional (`agent_yaml/loops.py:1687`):
 
 | `skip-header` | `columns` | Result |
 |---------------|-----------|--------|
@@ -101,7 +101,7 @@ task:
   - document-files:
       loop:
         type: glob
-        pattern: "{{directory}}/src/**/*.py"
+        pattern: "{{directory}}/agent_yaml/**/*.py"
         exclude: ["**/test_*.py", "**/__pycache__/**"]
         sort: modified
       prompt: |
@@ -112,10 +112,10 @@ task:
 |-------|---------|
 | `pattern` | Glob, recursive (`**`) supported |
 | `exclude` | String or list of globs to drop |
-| `sort` | `name` (A→Z), `modified`, `size`, `created` — the last three are newest/largest first (`src/loops.py:2145`) |
+| `sort` | `name` (A→Z), `modified`, `size`, `created` — the last three are newest/largest first (`agent_yaml/loops.py:2145`) |
 
 `{{loop.item}}` renders as the absolute path, and the item also exposes `path`, `filename`,
-`extension` (`src/loops.py:2204`). An empty match set is not an error: the task body is skipped and
+`extension` (`agent_yaml/loops.py:2204`). An empty match set is not an error: the task body is skipped and
 `No files match pattern: …` is logged.
 
 ---
@@ -193,7 +193,7 @@ loop:
 - `resume: true` loads the file and continues after `current_index`. Without `resume`, the file is
   still written but never read.
 - Writes are atomic (temp file + `os.replace`), so a killed process cannot leave a half-written
-  checkpoint (`src/loops.py:2225`).
+  checkpoint (`agent_yaml/loops.py:2225`).
 - Format:
 
 ```json
@@ -230,7 +230,7 @@ so a loop that fails to parse or validate fails the suite.
 
 1. **`workers` only parallelises `csv`, `json`, and `jsonl`.** `todo-list` and `glob` ignore it
    silently — validation accepts the field but execution is sequential.
-2. **`path` is `json`-only**; `jsonl` rejects it (`src/validator.py:482`).
+2. **`path` is `json`-only**; `jsonl` rejects it (`agent_yaml/validator.py:482`).
 3. **Filters are exact-equality only** — no ranges, regex, or type coercion.
 4. **CSV filter compares against `str(value)`**, so booleans/numbers in the config are stringified
    before comparison, unlike JSON filters which compare natively.
@@ -252,6 +252,6 @@ so a loop that fails to parse or validate fails the suite.
 
 ---
 
-Source of truth: `src/loops.py` (all five loop types, checkpoints, filters), `src/validator.py:349`
+Source of truth: `agent_yaml/loops.py` (all five loop types, checkpoints, filters), `agent_yaml/validator.py:349`
 (loop schema). Related: [PARALLEL_LOOPS.md](PARALLEL_LOOPS.md), `examples/04-*` through
 `examples/12-*`, `examples/27-*` through `examples/36-*`.

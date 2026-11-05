@@ -7,7 +7,7 @@ Working notes for Claude Code in this repository. The canonical agent guide is
 ## What this is
 
 `agent-yaml` runs declarative YAML workflows by spawning an AI coding-agent CLI once per task
-(`opencode`, `claude`, `gemini`, `qwen`, `codex`). The Python package is literally named `src` — do not
+(`opencode`, `claude`, `gemini`, `qwen`, `codex`). The Python package is `agent_yaml` — do not
 rename it.
 
 ```bash
@@ -27,11 +27,11 @@ cli.py ─ parser.py ─ validator.py ─ includes.py ─ variables.py
    └─ events.py ─ web/ (agent-yaml serve: FastAPI + SSE visual runner)
 ```
 
-`agent-yaml serve` runs the interface runner (`src/web/`: FastAPI app, run manager, SQLite store,
+`agent-yaml serve` runs the interface runner (`agent_yaml/web/`: FastAPI app, run manager, SQLite store,
 scheduler, and `static/webgl.js` — a WebGL2 stage-graph renderer with a DOM label layer).
-`src/graph.py` builds the node graph, `src/events.py` emits callbacks that the UI streams over SSE
+`agent_yaml/graph.py` builds the node graph, `agent_yaml/events.py` emits callbacks that the UI streams over SSE
 and renders in the trace panel. Keep event `node_id`s equal to graph node ids; do not remove the
-emissions in `src/cli.py` / `src/executor.py` / `src/loops.py`.
+emissions in `agent_yaml/cli.py` / `agent_yaml/executor.py` / `agent_yaml/loops.py`.
 
 - **Task tree**: a list under `task:` is sequential; mapping keys inside a task run in parallel
   (`ThreadPoolExecutor`). Task meta fields: `prompt`, `task`, `loop`, `include`, `on-error`,
@@ -39,7 +39,7 @@ emissions in `src/cli.py` / `src/executor.py` / `src/loops.py`.
 - **Files, not stdout**: the agent's output is never parsed. Prompts ask for files; validators and
   tests assert on files.
 - **Variables**: reserved (`{{directory}}`, `{{gitroot}}`, `{{datetime}}`, `{{user}}`, `{{env.NAME}}`)
-  then user variables in dependency order; `interpolate_variables()` in `src/utils.py` does
+  then user variables in dependency order; `interpolate_variables()` in `agent_yaml/utils.py` does
   dot-notation replacement. Undefined → `""`.
 - **Env precedence**: system < `--env-file` < workflow `environment:` < task `env:` < `--var`.
 - **Ordering**: `skip-if` → `when` → task execution → validators (with `retry.on-validation-failure`).
@@ -73,5 +73,5 @@ sleeps. Live runs are hermetic (isolated HOME/XDG/OPENCODE_CONFIG_DIR) and read
 
 ## Where the truth lives
 
-Behaviour: `src/`. Format: `spec/YAML_SPEC.md`, `spec/ADAPTER_SPEC.md`, `spec/PROJECT_SPECS.md`.
+Behaviour: `agent_yaml/`. Format: `spec/YAML_SPEC.md`, `spec/ADAPTER_SPEC.md`, `spec/PROJECT_SPECS.md`.
 Usage: `README.md`. Tests: `tests/README.md`. Examples: `examples/` and `examples/README.md`.

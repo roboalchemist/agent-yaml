@@ -10,7 +10,7 @@ cd agent-yaml
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest -q
-ruff check src tests
+ruff check agent_yaml tests
 ```
 
 ## Ground rules
@@ -27,7 +27,7 @@ ruff check src tests
 
 - Keep changes focused; one concern per PR.
 - Add or update tests for behaviour changes.
-- Run `pytest -q` and `ruff check src tests` before pushing.
+- Run `pytest -q` and `ruff check agent_yaml tests` before pushing.
 - Describe the motivation and the user-visible effect in the PR body.
 
 ## Reporting bugs

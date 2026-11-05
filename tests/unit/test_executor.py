@@ -1,5 +1,5 @@
 """
-Unit tests for src.executor.execute_single_task: running the agent, on-error strategies,
+Unit tests for agent_yaml.executor.execute_single_task: running the agent, on-error strategies,
 prompt composition, cli-agent-config merging, directory override, dry-run and debug modes.
 
 The agent subprocess is mocked; `mock_adapter` builds the command ["agent", "--", "prompt"].
@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.executor import ExecutionError, execute_single_task
+from agent_yaml.executor import ExecutionError, execute_single_task
 from tests.support.helpers import completed
 
 COMMAND = ["agent", "--", "prompt"]

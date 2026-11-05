@@ -181,7 +181,7 @@ def resolve_user_variables(variables_dict, reserved_vars):
         >>> result["a"]
         'value'
     """
-    from src.utils import interpolate_variables
+    from agent_yaml.utils import interpolate_variables
 
     if not variables_dict:
         # No user variables, just return reserved vars

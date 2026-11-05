@@ -1,4 +1,4 @@
-"""Unit tests for src/variables.py: reserved variables, the `env` namespace, user variables."""
+"""Unit tests for agent_yaml/variables.py: reserved variables, the `env` namespace, user variables."""
 
 import os
 import re
@@ -6,8 +6,8 @@ from datetime import datetime
 
 import pytest
 
-from src.utils import evaluate_expression
-from src.variables import (
+from agent_yaml.utils import evaluate_expression
+from agent_yaml.variables import (
     CircularDependencyError,
     ReservedVariables,
     UndefinedVariableError,
@@ -99,7 +99,7 @@ class TestReservedVariables:
         resolved = ReservedVariables().get_reserved_vars("~/project")
         assert resolved["directory"] == str(tmp_path / "project")
 
-    @pytest.mark.parametrize("start", ["", "src", "src/deep/er"], ids=["root", "subdir", "deep"])
+    @pytest.mark.parametrize("start", ["", "agent_yaml", "agent_yaml/deep/er"], ids=["root", "subdir", "deep"])
     @pytest.mark.parametrize("marker", ["git-dir", "worktree-git-file"])
     def test_gitroot_is_nearest_ancestor_with_dot_git(self, tmp_path, marker, start):
         repo = tmp_path / "repo"

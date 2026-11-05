@@ -587,7 +587,7 @@ Iterate over files matching patterns.
 ```yaml
 loop:
   type: glob
-  pattern: "src/**/*.ts"
+  pattern: "agent_yaml/**/*.ts"
   exclude: ["**/*.test.ts"]  # Optional
   sort: modified             # Optional: name, modified, size, created
 ```
@@ -608,7 +608,7 @@ task:
       prompt: "Update imports in {{loop.item.path}}"
       loop:
         type: glob
-        pattern: "src/**/*.ts"
+        pattern: "agent_yaml/**/*.ts"
         exclude: ["**/*.test.ts"]
 ```
 
@@ -766,7 +766,7 @@ task:
 
 ## Template Variable Interpolation
 
-Variables are interpolated by `src/utils.py`, which picks one of two paths **per string**.
+Variables are interpolated by `agent_yaml/utils.py`, which picks one of two paths **per string**.
 
 ### Hybrid Interpolation
 

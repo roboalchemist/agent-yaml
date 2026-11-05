@@ -1,9 +1,9 @@
-"""Unit tests for src/utils.py: interpolate_variables (prompt templates) and evaluate_expression."""
+"""Unit tests for agent_yaml/utils.py: interpolate_variables (prompt templates) and evaluate_expression."""
 
 import pytest
 from jinja2 import TemplateSyntaxError
 
-from src.utils import evaluate_expression, interpolate_variables
+from agent_yaml.utils import evaluate_expression, interpolate_variables
 
 IF_ELSE = "{% if value %}YES{% else %}NO{% endif %}"
 LEVELS = "{% if level == 'high' %}HIGH{% elif level == 'medium' %}MEDIUM{% else %}LOW{% endif %}"

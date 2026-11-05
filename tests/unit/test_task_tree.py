@@ -1,12 +1,12 @@
-"""Unit tests for src.cli.execute_task_tree; single tasks and loop classes are mocked."""
+"""Unit tests for agent_yaml.cli.execute_task_tree; single tasks and loop classes are mocked."""
 
 import threading
 from unittest.mock import DEFAULT, patch
 
 import pytest
 
-from src.cli import execute_task_tree
-from src.executor import ExecutionError
+from agent_yaml.cli import execute_task_tree
+from agent_yaml.executor import ExecutionError
 
 LOOP_CLASSES = ["TodoListLoop", "CSVLoop", "GlobLoop", "JsonLoop"]
 
@@ -50,8 +50,8 @@ def run_tree(mock_adapter, resolved_vars, workflow_config):
 
 @pytest.fixture
 def single_task():
-    """Patched src.cli.execute_single_task; every task succeeds unless side_effect is replaced."""
-    with patch("src.cli.execute_single_task", side_effect=task_outcomes()) as mock:
+    """Patched agent_yaml.cli.execute_single_task; every task succeeds unless side_effect is replaced."""
+    with patch("agent_yaml.cli.execute_single_task", side_effect=task_outcomes()) as mock:
         yield mock
 
 
@@ -229,7 +229,7 @@ class TestLoopDispatch:
     ):
         task = {"prompt": "Process {{loop.item}}", "loop": {"type": loop_type, "source": "items"}}
 
-        with patch.multiple("src.cli", **{name: DEFAULT for name in LOOP_CLASSES}) as loops:
+        with patch.multiple("agent_yaml.cli", **{name: DEFAULT for name in LOOP_CLASSES}) as loops:
             loops[loop_class].return_value.execute.return_value = {"status": "success"}
             assert run_tree(task, dry_run=True, verbose=True) == 0
 
@@ -259,14 +259,14 @@ class TestLoopDispatch:
             "loop": {"type": "csv", "source": "rows.csv"},
         }
 
-        with patch("src.cli.CSVLoop") as loop_cls:
+        with patch("agent_yaml.cli.CSVLoop") as loop_cls:
             loop_cls.return_value.execute.return_value = {"status": status}
             assert run_tree(task, error_strategy=strategy) == exit_code
 
     def test_loop_execution_error_is_reported_and_returns_1(self, run_tree, capsys):
         task = {"prompt": "Process {{loop.item}}", "loop": {"type": "json", "source": "items.json"}}
 
-        with patch("src.cli.JsonLoop") as loop_cls:
+        with patch("agent_yaml.cli.JsonLoop") as loop_cls:
             loop_cls.return_value.execute.side_effect = ExecutionError(
                 "JSON file not found: items.json"
             )
@@ -280,7 +280,7 @@ class TestLoopDispatch:
     def test_unknown_loop_type_returns_1_without_running_anything(
         self, run_tree, single_task, capsys
     ):
-        with patch.multiple("src.cli", **{name: DEFAULT for name in LOOP_CLASSES}) as loops:
+        with patch.multiple("agent_yaml.cli", **{name: DEFAULT for name in LOOP_CLASSES}) as loops:
             assert run_tree({"prompt": "Process", "loop": {"type": "unknown-loop"}}) == 1
 
         assert not any(cls.called for cls in loops.values())

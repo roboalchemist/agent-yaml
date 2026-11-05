@@ -1,5 +1,5 @@
 """
-Unit tests for environment variables: src.executor.build_merged_environment
+Unit tests for environment variables: agent_yaml.executor.build_merged_environment
 (system < workflow `environment` < task `env`) and how execute_single_task uses it for the
 agent process and for {{env.NAME}} interpolation.
 """
@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.executor import build_merged_environment, execute_single_task
+from agent_yaml.executor import build_merged_environment, execute_single_task
 from tests.support.helpers import completed
 
 

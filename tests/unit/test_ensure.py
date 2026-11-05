@@ -1,10 +1,10 @@
-"""Unit tests for src/ensure.py (start-time `ensure:` checks)."""
+"""Unit tests for agent_yaml/ensure.py (start-time `ensure:` checks)."""
 
 from unittest.mock import patch
 
 import pytest
 
-from src.ensure import (
+from agent_yaml.ensure import (
     EnsureValidationError,
     check_mcp_available,
     check_tool_available,
@@ -99,7 +99,7 @@ class TestValidateEnsureBlock:
     def test_missing_mcps_are_reported(self, tools, message):
         """MCP detection is a stub today; this pins the message once it can report a miss."""
         with patch("shutil.which", return_value=None):
-            with patch("src.ensure.check_mcp_available", return_value=False):
+            with patch("agent_yaml.ensure.check_mcp_available", return_value=False):
                 with pytest.raises(EnsureValidationError) as exc_info:
                     validate_ensure_block({"tools": tools, "mcps": ["github"]})
 

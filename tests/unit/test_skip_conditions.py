@@ -1,8 +1,8 @@
-"""Unit tests for src/skip_conditions.py (task-level `skip-if:`)."""
+"""Unit tests for agent_yaml/skip_conditions.py (task-level `skip-if:`)."""
 
 import pytest
 
-from src.skip_conditions import (
+from agent_yaml.skip_conditions import (
     FileContainsSkipCondition,
     FileExistsSkipCondition,
     SkipConditionError,

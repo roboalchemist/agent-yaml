@@ -27,7 +27,7 @@ tests/
 │   ├── helpers.py         # REPO_ROOT, EXAMPLES_DIR, bash_prompt(), file readers
 │   ├── fake_opencode.py   # the fake agent: runs the prompt's ```bash block, logs argv/cwd
 │   └── scenarios.py       # 13 workflow scenarios shared by integration AND live
-├── unit/                  # one src module per file (incl. test_graph.py + test_web_runtime.py for the web runner)
+├── unit/                  # one module per file (incl. test_graph.py + test_web_runtime.py for the web runner)
 ├── integration/
 │   ├── test_scenarios.py  # every support/scenarios.py scenario through the real CLI
 │   ├── test_cli.py        # run_workflow() / main() behaviour
@@ -59,14 +59,14 @@ left behind. **Add a feature scenario here and both tiers gain coverage at once.
 
 - pytest functions and `@pytest.mark.parametrize` — no `unittest.TestCase`, no `setup_method`.
 - `tmp_path` for every filesystem test; never write into the repo.
-- Mock the agent, not the code under test: `patch("src.executor.execute_single_task")`. `loops.py`
+- Mock the agent, not the code under test: `patch("agent_yaml.executor.execute_single_task")`. `loops.py`
   imports it lazily inside each `execute()`, so patching the executor attribute is enough.
 - No sleeps longer than ~0.2s. A command validator with a delay must set `timeout: 1`.
-- One `src` module per file (`src/loops.py` → `tests/unit/test_loops.py`, …).
+- One `agent_yaml` module per file (`agent_yaml/loops.py` → `tests/unit/test_loops.py`, …).
 
 ## Integration tier conventions
 
-- Go through the real entry point (`run_workflow`/`python -m src.cli`) so argparse, validation,
+- Go through the real entry point (`run_workflow`/`python -m agent_yaml.cli`) so argparse, validation,
   includes, variables, loops and adapter wiring all run.
 - Let the fake agent do the filesystem work; assert on the files and on `fake_opencode.calls()`.
 - Every `examples/*.yaml` and `tasks/*.yaml` must dry-run clean. `tasks/base.yaml` (a copy-paste
@@ -91,7 +91,7 @@ default model never apply. `XDG_CACHE_HOME` stays real so OpenCode does not re-d
 
 A session-scoped preflight proves the key, the model, and tool calling in one shot: it asks the agent
 to run `echo PONG > preflight.txt` with bash and fails readably if the file is missing. Each scenario
-then runs `python -m src.cli run <workflow> --cli-agent opencode --model <live model>
+then runs `python -m agent_yaml.cli run <workflow> --cli-agent opencode --model <live model>
 --directory <tmp>` with `cwd=<tmp>`.
 
 Overrides:

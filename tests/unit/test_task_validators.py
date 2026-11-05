@@ -1,11 +1,11 @@
-"""Unit tests for src/task_validators.py (post-task `validate:` checks)."""
+"""Unit tests for agent_yaml/task_validators.py (post-task `validate:` checks)."""
 
 import time
 from unittest.mock import patch
 
 import pytest
 
-from src.task_validators import (
+from agent_yaml.task_validators import (
     DEFAULT_COMMAND_TIMEOUT,
     CommandValidator,
     ContainsValidator,
@@ -342,7 +342,7 @@ class TestCommandValidator:
         assert elapsed < 4
 
     def test_default_timeout(self):
-        with patch("src.task_validators.subprocess.run", return_value=completed()) as run:
+        with patch("agent_yaml.task_validators.subprocess.run", return_value=completed()) as run:
             result = CommandValidator({"cmd": "make check"}, {}).validate()
 
         assert result.passed is True
@@ -357,14 +357,14 @@ class TestCommandValidator:
 
     def test_output_in_details_is_truncated(self):
         output = completed(returncode=1, stdout="o" * 300, stderr="e" * 300)
-        with patch("src.task_validators.subprocess.run", return_value=output):
+        with patch("agent_yaml.task_validators.subprocess.run", return_value=output):
             result = CommandValidator({"cmd": "make check"}, {}).validate()
 
         assert result.details["stdout"] == "o" * 200
         assert result.details["stderr"] == "e" * 200
 
     def test_launch_error_fails(self):
-        with patch("src.task_validators.subprocess.run", side_effect=OSError("no shell")):
+        with patch("agent_yaml.task_validators.subprocess.run", side_effect=OSError("no shell")):
             result = CommandValidator({"cmd": "make check"}, {}).validate()
 
         assert result.passed is False

@@ -1,9 +1,9 @@
-"""Workflow file loading (src/parser.py)."""
+"""Workflow file loading (agent_yaml/parser.py)."""
 
 import pytest
 import yaml
 
-from src.parser import parse_workflow
+from agent_yaml.parser import parse_workflow
 
 
 def workflow_file(tmp_path, text):

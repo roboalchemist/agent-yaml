@@ -171,7 +171,7 @@ class WorkflowRun:
 @pytest.fixture
 def run_workflow(opencode_env, tmp_path):
     """
-    Run a workflow through `python -m src.cli run` with the live agent and model.
+    Run a workflow through `python -m agent_yaml.cli run` with the live agent and model.
 
     The workflow's directory is overridden to `workdir` (default: tmp_path) and the
     process runs with cwd=workdir, so relative loop sources and validator paths
@@ -181,7 +181,7 @@ def run_workflow(opencode_env, tmp_path):
     def _run(workflow, *extra_args, workdir=None, timeout=900):
         workdir = Path(workdir or tmp_path)
         cmd = [
-            sys.executable, "-m", "src.cli", "run", str(workflow),
+            sys.executable, "-m", "agent_yaml.cli", "run", str(workflow),
             "--cli-agent", "opencode", "--model", LIVE_MODEL,
             "--directory", str(workdir), *extra_args,
         ]

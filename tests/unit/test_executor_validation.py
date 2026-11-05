@@ -1,5 +1,5 @@
 """
-Unit tests for post-task validation and `retry` in src.executor.execute_single_task.
+Unit tests for post-task validation and `retry` in agent_yaml.executor.execute_single_task.
 
 Validators run after the agent exits 0. The agent is simulated by a subprocess.run side
 effect that writes the task's output file; validator paths are absolute under tmp_path.
@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.executor import ExecutionError, execute_single_task
-from src.task_validators import ValidationError
+from agent_yaml.executor import ExecutionError, execute_single_task
+from agent_yaml.task_validators import ValidationError
 from tests.support.helpers import completed
 
 COMPLETE_REPORT = "# Report\n\n## Summary\n\nAll good.\n\n## Details\n\n- item one\n"
@@ -394,7 +394,7 @@ class TestRetry:
 def broken_validators():
     """run_validators raising ValidationError, as for a validator that cannot be set up."""
     error = ValidationError("bad validator setup")
-    with patch("src.task_validators.run_validators", side_effect=error) as run_validators:
+    with patch("agent_yaml.task_validators.run_validators", side_effect=error) as run_validators:
         yield run_validators
 
 

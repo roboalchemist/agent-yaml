@@ -14,15 +14,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.executor import ExecutionError
-from src.loops import CSVLoop, JsonLoop
+from agent_yaml.executor import ExecutionError
+from agent_yaml.loops import CSVLoop, JsonLoop
 
 GIT = shutil.which("git")
 
 
 @pytest.fixture
 def run_task():
-    with patch("src.executor.execute_single_task") as mock:
+    with patch("agent_yaml.executor.execute_single_task") as mock:
         mock.return_value = {"status": "success", "exit_code": 0}
         yield mock
 
@@ -82,7 +82,7 @@ def test_simple_parallel_dry_run_does_not_execute(two_rows, run_task, adapter, c
 
 
 def test_simple_parallel_retry_recovers(two_rows, adapter):
-    with patch("src.executor.execute_single_task") as mock:
+    with patch("agent_yaml.executor.execute_single_task") as mock:
         mock.side_effect = [
             ExecutionError("boom"),
             {"status": "success", "exit_code": 0},
@@ -104,7 +104,7 @@ def test_simple_parallel_retry_recovers(two_rows, adapter):
 
 
 def test_simple_parallel_default_failure_raises(two_rows, adapter):
-    with patch("src.executor.execute_single_task") as mock:
+    with patch("agent_yaml.executor.execute_single_task") as mock:
         mock.side_effect = ExecutionError("boom")
 
         with pytest.raises(ExecutionError):
@@ -118,7 +118,7 @@ def test_simple_parallel_default_failure_raises(two_rows, adapter):
 
 
 def test_simple_parallel_abort_raises(two_rows, adapter):
-    with patch("src.executor.execute_single_task") as mock:
+    with patch("agent_yaml.executor.execute_single_task") as mock:
         mock.side_effect = ExecutionError("boom")
 
         with pytest.raises(ExecutionError, match="boom"):

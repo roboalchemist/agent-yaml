@@ -2,7 +2,7 @@
 
 Validators check what a task actually produced after the agent CLI exits 0. They are the difference
 between "the agent said it was done" and "the artifact is on disk, parses, and contains the right
-text". Six kinds exist (`src/validator.py:567`), each a single-key mapping in a task's `validate`
+text". Six kinds exist (`agent_yaml/validator.py:567`), each a single-key mapping in a task's `validate`
 list.
 
 ## Basic Usage
@@ -24,7 +24,7 @@ Behaviour:
 
 - Validators run **only when the task exits 0**. A non-zero exit goes straight to error handling.
 - **All validators run**, even after one fails, so a single pass reports every problem at once
-  (`src/task_validators.py:488`).
+  (`agent_yaml/task_validators.py:488`).
 - The task's result then carries `validation: {all_passed, results, failed_count, total_count}`.
 - `validate: []` is a schema error; drop the field instead.
 
@@ -44,7 +44,7 @@ Behaviour:
 ### Paths resolve against the agent-yaml process cwd
 
 Validator paths are **not** resolved against the workflow `directory` and validators do not `cd`
-into it (`src/task_validators.py:32`). Either use absolute paths (the usual pattern is
+into it (`agent_yaml/task_validators.py:32`). Either use absolute paths (the usual pattern is
 `{{directory}}/...` or `{{workspace}}/...`) or run agent-yaml from the directory the validators
 assume.
 
@@ -62,7 +62,7 @@ validate:
 - `{file}` is replaced with the absolute, `~`-expanded, template-interpolated path — after the
   command string itself is interpolated.
 - If `file` is given, a missing file fails the validator before the command runs.
-- `timeout` is in seconds (default 30, `src/task_validators.py:46`); a timeout is a failure.
+- `timeout` is in seconds (default 30, `agent_yaml/task_validators.py:46`); a timeout is a failure.
 - Only the exit code matters. stdout/stderr are captured and truncated to 200 characters in the
   result details, so print diagnostics from the script for debugging.
 
@@ -91,7 +91,7 @@ task:
 | `max-attempts` | integer ≥ 1 | `1` (no retry) |
 | `on-validation-failure` | `retry`, `fail`, `skip` | `fail` |
 
-How each strategy behaves (`src/executor.py:733`):
+How each strategy behaves (`agent_yaml/executor.py:733`):
 
 | `on-validation-failure` | Behaviour |
 |-------------------------|-----------|
@@ -108,7 +108,7 @@ prompt: |
   It MUST start with a "## Summary" section — a validator checks for that heading.
 ```
 
-`retry` validation rejects unknown fields and `max-attempts < 1` (`src/validator.py:672`).
+`retry` validation rejects unknown fields and `max-attempts < 1` (`agent_yaml/validator.py:672`).
 
 ---
 
@@ -119,7 +119,7 @@ skip-if  →  when  →  agent CLI  →  exit code 0?  →  validators  →  ret
                                    exit code != 0 → on-error
 ```
 
-- `skip-if` is checked first, then `when` (`src/executor.py:179`, `src/executor.py:221`); see
+- `skip-if` is checked first, then `when` (`agent_yaml/executor.py:179`, `agent_yaml/executor.py:221`); see
   [TEMPLATING.md](TEMPLATING.md) for `when` semantics.
 - `--dry-run` does **not** execute validators — the run only reports that N validators are declared.
 - Validators are per task; there is no workflow-level `validate` block.
@@ -187,6 +187,6 @@ paths, so do not "fix" them.
 
 ---
 
-Source of truth: `src/task_validators.py` (validator implementations, `run_validators`),
-`src/executor.py` (ordering, retry, events), `src/validator.py:546` (schema).
+Source of truth: `agent_yaml/task_validators.py` (validator implementations, `run_validators`),
+`agent_yaml/executor.py` (ordering, retry, events), `agent_yaml/validator.py:546` (schema).
 Related: `docs/docstring-workflow-validators.md` for a real workflow built on these.

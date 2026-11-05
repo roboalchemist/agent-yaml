@@ -21,6 +21,6 @@ jobs:
       - name: Install
         run: pip install -e ".[dev]"
       - name: Lint
-        run: ruff check src tests
+        run: ruff check agent_yaml tests
       - name: Test
         run: pytest -q

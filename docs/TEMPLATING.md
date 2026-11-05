@@ -7,7 +7,7 @@ semantics of `when` expressions.
 
 ## Two Rendering Paths
 
-`interpolate_variables()` decides per string (`src/utils.py:76`, `src/utils.py:158`):
+`interpolate_variables()` decides per string (`agent_yaml/utils.py:76`, `agent_yaml/utils.py:158`):
 
 | Path | Chosen when the string contains | Behaviour |
 |------|--------------------------------|-----------|
@@ -59,7 +59,7 @@ Three rules follow:
 
 ## Undefined Variables Fail Silently
 
-The Jinja environment uses a `SilentUndefined` class (`src/utils.py:16`): unknown names render as
+The Jinja environment uses a `SilentUndefined` class (`agent_yaml/utils.py:16`): unknown names render as
 `""`, are falsy, and iterate as empty. Typos therefore produce empty prompts, not errors, and
 `agent-yaml validate` will not catch them.
 
@@ -93,12 +93,12 @@ agent-yaml run tasks/my-workflow.yaml --dry-run -v
 | `--var key=value` | CLI | Overrides any user variable; values always arrive as **strings** |
 
 Reserved names cannot be overridden — defining `directory` in `template-variables` raises
-`CircularDependencyError` (`src/variables.py:191`).
+`CircularDependencyError` (`agent_yaml/variables.py:191`).
 
 ### Variables that reference other variables
 
 Resolution is a topological sort over `{{...}}` references, with cycle detection
-(`src/variables.py:159`):
+(`agent_yaml/variables.py:159`):
 
 ```yaml
 template-variables:
@@ -114,7 +114,7 @@ rendering empty.
 
 ## Jinja2 Features You Can Use
 
-All verified against `src/utils.py` (outputs shown for the given variables):
+All verified against `agent_yaml/utils.py` (outputs shown for the given variables):
 
 | Template | Variables | Output |
 |----------|-----------|--------|
@@ -130,7 +130,7 @@ Escaping literal braces matters when a prompt contains shell or Go templating. W
 
 ### Whitespace in prompt blocks
 
-The Jinja environment sets `trim_blocks` and `lstrip_blocks` (`src/utils.py:59`), so block tags do
+The Jinja environment sets `trim_blocks` and `lstrip_blocks` (`agent_yaml/utils.py:59`), so block tags do
 not leave blank lines behind:
 
 ```yaml
@@ -160,7 +160,7 @@ renders as `abc` (verified) — the newlines around the tags are consumed.
 
 ## `when` Expressions Are Different
 
-`when` runs through `evaluate_expression()` (`src/utils.py:210`), which converts `{{var}}` into flat
+`when` runs through `evaluate_expression()` (`agent_yaml/utils.py:210`), which converts `{{var}}` into flat
 identifiers and evaluates the result in a `NativeEnvironment`. Types stay native, which is why
 booleans work:
 
@@ -192,13 +192,13 @@ is truthy.
 2. **`{{flag}}` with `--var flag=false` is truthy.** The value is the string `"false"`. Write
    `when: "{{flag}} == 'true'"`, or put the flag in `template-variables` as a YAML boolean.
 3. **Evaluation errors are silent.** Any exception inside the expression returns `False`
-   (`src/utils.py:290`) and the task is skipped with a log line. A syntax typo looks identical to a
+   (`agent_yaml/utils.py:290`) and the task is skipped with a log line. A syntax typo looks identical to a
    false condition, so check stderr for `Task skipped: when condition not satisfied`.
 4. **The `v` namespace does not exist here.** `{{ v['my-var'] }}` is not defined in expressions;
    use underscored names, or `{{my_var}}` where the variable is declared without a hyphen.
 
-`skip-if` is separate, file-based, and runs **before** `when` (`src/executor.py:179`,
-`src/executor.py:221`):
+`skip-if` is separate, file-based, and runs **before** `when` (`agent_yaml/executor.py:179`,
+`agent_yaml/executor.py:221`):
 
 ```yaml
 - generate:
@@ -226,7 +226,7 @@ task:
       prompt: "Build with LOG_LEVEL={{env.LOG_LEVEL}} into {{env.OUT_DIR}}"
 ```
 
-Precedence, lowest to highest (`src/cli.py:355`, `src/executor.py:34`):
+Precedence, lowest to highest (`agent_yaml/cli.py:355`, `agent_yaml/executor.py:34`):
 
 ```
 system env  <  --env-file  <  workflow environment:  <  task env:  <  --var
@@ -262,6 +262,6 @@ result is both exported to the agent CLI and readable as `{{env.NAME}}`.
 
 ---
 
-Source of truth: `src/utils.py` (interpolation, expressions), `src/variables.py` (reserved and
-user variables), `src/when_conditions.py`, `src/executor.py` (env merge, gating order).
+Source of truth: `agent_yaml/utils.py` (interpolation, expressions), `agent_yaml/variables.py` (reserved and
+user variables), `agent_yaml/when_conditions.py`, `agent_yaml/executor.py` (env merge, gating order).
 Root README sections: *Template variables*, *Environment variables*, *Skip-if and when*.
