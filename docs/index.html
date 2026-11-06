@@ -155,6 +155,7 @@
     <div class="group">Running</div>
     <ol start="13">
       <li><a href="#adapters">Adapters</a></li>
+      <li><a href="#surfaces">Config surfaces</a></li>
       <li><a href="#cli">Command line</a></li>
       <li><a href="#runner">Visual runner</a></li>
       <li><a href="#debugging">Debugging</a></li>
@@ -488,7 +489,7 @@ task:
           <tbody>
             <tr><td><code>opencode</code></td><td><code>--auto</code></td><td><code>--model provider/model</code></td><td>Runs <code>opencode run</code>, with <code>--standalone</code> by default.</td></tr>
             <tr><td><code>claude</code></td><td><code>--dangerously-skip-permissions</code></td><td><code>--model</code></td><td>Aliases such as <code>sonnet-4.5</code> are translated.</td></tr>
-            <tr><td><code>codex</code></td><td><code>--full-auto</code></td><td><code>-m</code></td><td>Uses only the first <code>additional-dirs</code> entry.</td></tr>
+            <tr><td><code>codex</code></td><td><code>--full-auto</code></td><td><code>--model</code></td><td>Uses only the first <code>additional-dirs</code> entry.</td></tr>
             <tr><td><code>pi</code></td><td><code>--approve</code></td><td><code>--model provider/id</code></td><td>Runs <code>pi -p</code> with <code>--no-session</code> unless a session is configured.</td></tr>
             <tr><td><code>vtcode</code></td><td><code>--dangerously-skip-permissions</code></td><td><code>--model</code></td><td>Runs <code>vtcode exec</code>; needs <code>[automation.full_auto]</code> in <code>vtcode.toml</code>.</td></tr>
             <tr><td><code>antigravity</code></td><td><code>--dangerously-skip-permissions</code></td><td><code>--model</code></td><td>Runs <code>agy -p</code> headless print mode; maps <code>additional-dirs</code> and <code>timeout</code> too.</td></tr>
@@ -510,6 +511,49 @@ task:
          the adapter has not caught up. Adding an adapter means subclassing <code>BaseAdapter</code>,
          implementing <code>build_command()</code> and <code>check_available()</code>, and registering it.</p>
       <p><a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/ADAPTER_TROUBLESHOOTING.md">Adapter troubleshooting</a>.</p>
+      <h3 id="surfaces">Config surfaces by harness</h3>
+      <p><code>cli-agent-config</code> keys are not portable: each harness supports a different subset.
+         This is the full matrix: a mapped flag, <b>ignored</b>, <b>ignored + warning</b>,
+         <b>rejected</b> at validate time, <b>passthrough</b>, or <b>executor</b> for the subprocess timeout.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Surface</th><th>opencode</th><th>claude</th><th>codex</th><th>pi</th><th>vtcode</th><th>antigravity</th></tr></thead>
+          <tbody>
+            <tr><td><code>model</code></td><td><code>--model</code></td><td><code>--model</code></td><td><code>--model</code></td><td><code>--model</code></td><td><code>--model</code></td><td><code>--model</code></td></tr>
+            <tr><td><code>provider</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td><code>--provider</code></td><td><code>--provider</code></td><td>rejected</td></tr>
+            <tr><td><code>session-id</code></td><td><code>--session</code></td><td><code>--session-id</code></td><td>ignored</td><td><code>--session-id</code></td><td><code>--session-id</code></td><td><code>--conversation</code></td></tr>
+            <tr><td><code>continue</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td><code>--continue</code></td><td><code>resume</code> (<code>--last</code> or id)</td><td><code>--continue</code></td></tr>
+            <tr><td><code>title</code></td><td><code>--title</code></td><td>ignored</td><td>ignored</td><td><code>--name</code></td><td>rejected</td><td>rejected</td></tr>
+            <tr><td><code>agent</code></td><td><code>--agent</code></td><td>ignored</td><td>ignored</td><td>rejected</td><td>rejected</td><td><code>--agent</code></td></tr>
+            <tr><td><code>permissions</code></td><td><code>--agent</code> (when <code>agent</code> unset)</td><td><code>--permission-mode</code></td><td><code>-a</code></td><td>rejected</td><td>rejected</td><td>rejected</td></tr>
+            <tr><td><code>output-format</code></td><td><code>--format</code></td><td><code>--output-format</code></td><td>ignored + warning</td><td><code>--mode</code></td><td><code>--json</code></td><td><code>--output-format</code></td></tr>
+            <tr><td><code>skip-confirmations</code></td><td><code>--auto</code></td><td><code>--dangerously-skip-permissions</code></td><td><code>--full-auto</code></td><td><code>--approve</code></td><td><code>--dangerously-skip-permissions</code></td><td><code>--dangerously-skip-permissions</code></td></tr>
+            <tr><td><code>debug</code></td><td><code>--print-logs</code></td><td><code>--debug</code> (also <code>--verbose</code>, stream-json)</td><td><code>-c</code> debug=true</td><td><code>--verbose</code></td><td><code>--verbose</code></td><td>rejected</td></tr>
+            <tr><td><code>raw-args</code></td><td>passthrough</td><td>passthrough</td><td>passthrough</td><td>passthrough</td><td>passthrough</td><td>passthrough</td></tr>
+            <tr><td><code>additional-dirs</code></td><td>ignored + warning</td><td><code>--add-dir</code> (each)</td><td><code>-C</code> (first only)</td><td>ignored + warning</td><td>ignored + warning</td><td><code>--add-dir</code> (each)</td></tr>
+            <tr><td><code>mcp-servers</code></td><td>ignored + warning</td><td><code>--allowed-mcp-server-names</code></td><td>ignored</td><td>ignored + warning</td><td>ignored + warning</td><td>ignored + warning</td></tr>
+            <tr><td><code>mcp-config-file</code></td><td>ignored + warning</td><td><code>--mcp-config</code></td><td>ignored</td><td>ignored + warning</td><td>ignored + warning</td><td>ignored + warning</td></tr>
+            <tr><td><code>tools</code></td><td>ignored</td><td><code>--tools</code></td><td>ignored</td><td><code>--tools</code></td><td>rejected</td><td>rejected</td></tr>
+            <tr><td><code>exclude-tools</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td><code>--exclude-tools</code></td><td>rejected</td><td>rejected</td></tr>
+            <tr><td><code>thinking</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td><code>--thinking</code></td><td>rejected</td><td>rejected</td></tr>
+            <tr><td><code>no-tools</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td><code>--no-tools</code></td><td>rejected</td><td>rejected</td></tr>
+            <tr><td><code>session</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td>no <code>--no-session</code></td><td>rejected</td><td>rejected</td></tr>
+            <tr><td><code>no-extensions</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td><code>--no-extensions</code></td><td>rejected</td><td>rejected</td></tr>
+            <tr><td><code>web-search</code></td><td>ignored</td><td>ignored</td><td><code>--search</code></td><td>rejected</td><td>rejected</td><td>rejected</td></tr>
+            <tr><td><code>server</code></td><td><code>--server</code> (replaces <code>--standalone</code>)</td><td>ignored</td><td>ignored</td><td>rejected</td><td>rejected</td><td>rejected</td></tr>
+            <tr><td><code>standalone</code></td><td>no <code>--standalone</code> (default true)</td><td>ignored</td><td>ignored</td><td>rejected</td><td>rejected</td><td>rejected</td></tr>
+            <tr><td><code>security-level</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td>rejected</td><td><code>--security-level</code></td><td>rejected</td></tr>
+            <tr><td><code>max-tool-calls</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td>rejected</td><td><code>--max-tool-calls</code></td><td>rejected</td></tr>
+            <tr><td><code>quiet</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td>rejected</td><td><code>--quiet</code></td><td>rejected</td></tr>
+            <tr><td><code>effort</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td>rejected</td><td>rejected</td><td><code>--effort</code></td></tr>
+            <tr><td><code>sandbox</code></td><td>ignored</td><td>ignored</td><td>ignored</td><td>rejected</td><td>rejected</td><td><code>--sandbox</code></td></tr>
+            <tr><td><code>timeout</code></td><td>executor</td><td>executor</td><td>executor</td><td>executor</td><td>executor</td><td><code>--print-timeout</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Only <code>pi</code>, <code>vtcode</code>, and <code>antigravity</code> reject unknown options at validate
+         time; <code>opencode</code>, <code>claude</code>, and <code>codex</code> silently ignore keys they do not read.
+         <a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/CONFIG_SURFACES.md">Full matrix and notes</a>.</p>
     </section>
 
     <section id="cli">
