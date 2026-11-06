@@ -255,7 +255,7 @@
           </thead>
           <tbody>
             <tr><td><code>directory</code></td><td>string</td><td class="req yes">yes</td><td>Working directory for every task. <code>~</code> is expanded and the path must exist.</td></tr>
-            <tr><td><code>cli-agent</code></td><td>string</td><td class="req">no</td><td><code>opencode</code>, <code>claude</code>, <code>qwen</code>, <code>codex</code>, <code>pi</code>, <code>vtcode</code>, or <code>antigravity</code>. Defaults to <code>claude</code>.</td></tr>
+            <tr><td><code>cli-agent</code></td><td>string</td><td class="req">no</td><td><code>opencode</code>, <code>claude</code>, <code>codex</code>, <code>pi</code>, <code>vtcode</code>, or <code>antigravity</code>. Defaults to <code>claude</code>.</td></tr>
             <tr><td><code>cli-agent-config</code></td><td>map</td><td class="req">no</td><td>Adapter options: <code>model</code>, <code>timeout</code>, <code>skip-confirmations</code>, <code>additional-dirs</code>, <code>mcp-config-file</code>, <code>raw-args</code>.</td></tr>
             <tr><td><code>environment</code></td><td>map</td><td class="req">no</td><td>Environment variables inherited by every task.</td></tr>
             <tr><td><code>template-variables</code></td><td>map</td><td class="req">no</td><td>User variables. Resolved in dependency order, and reference cycles are rejected.</td></tr>
