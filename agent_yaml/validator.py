@@ -13,6 +13,8 @@ Validation includes:
 Reference: spec/YAML_SPEC.md for schema requirements.
 """
 
+from agent_yaml.adapters import ADAPTERS
+from agent_yaml.adapters.base import KIND_LABELS
 from agent_yaml.includes import CircularIncludeError, detect_circular_includes
 
 
@@ -20,6 +22,20 @@ class ValidationError(Exception):
     """Raised when workflow validation fails."""
 
     pass
+
+
+def _describe_option(option):
+    """Human-readable type label for validator error messages."""
+    if option.kind == "enum":
+        return "one of " + ", ".join(option.values)
+    return KIND_LABELS[option.kind]
+
+
+# Generated from the adapter metadata: one source of truth for validation.
+AGENT_OPTION_SPECS = {
+    name: {key: _describe_option(option) for key, option in adapter.option_spec.items()}
+    for name, adapter in ADAPTERS.items()
+}
 
 
 class SchemaValidator:
@@ -30,151 +46,23 @@ class SchemaValidator:
     - Required fields (directory, task)
     - Optional field types (cli-agent, cli-agent-config, on-error, etc.)
     - Field value constraints (cli-agent must be a supported adapter)
+    - Adapter options against the adapter's declared option spec
     """
 
-    VALID_CLI_AGENTS = ["opencode", "claude", "codex", "pi", "vtcode", "antigravity"]
+    VALID_CLI_AGENTS = list(ADAPTERS)
     VALID_ON_ERROR_VALUES = ["fail", "continue", "skip"]
 
-    # Adapter options. Anything not listed here is rejected, so a typo or a
-    # config key copied from another adapter fails at validate time instead of
-    # producing a command the CLI rejects at run time.
-    _agent = "claude"
-    PI_THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
-    PI_OUTPUT_FORMATS = ["text", "json"]
-    PI_OPTION_SPEC = {
-        "model": "string",
-        "provider": "string (requires model)",
-        "thinking": "string",
-        "title": "string",
-        "session-id": "string",
-        "output-format": "string",
-        "tools": "string or list of strings",
-        "exclude-tools": "string or list of strings",
-        "skip-confirmations": "boolean",
-        "no-tools": "boolean",
-        "continue": "boolean",
-        "session": "boolean",
-        "session-dir": "string",
-        "system-prompt": "string",
-        "append-system-prompt": "string or list of strings",
-        "debug": "boolean",
-        "no-extensions": "boolean",
-        "extensions": "list of strings",
-        "skills": "list of strings",
-        "no-builtin-tools": "boolean",
-        "no-context-files": "boolean",
-        "no-mcp": "boolean",
-        "timeout": "positive number",
-        "raw-args": "list of strings",
-        "additional-dirs": "list (ignored by pi)",
-        "mcp-servers": "list (ignored by pi)",
-        "mcp-config-file": "string (ignored by pi)",
-    }
-
-    VTCODE_OPTION_SPEC = {
-        "model": "string",
-        "provider": "string",
-        "session-id": "string",
-        "output-format": "string",
-        "security-level": "string",
-        "max-tool-calls": "positive integer",
-        "max-concurrent-ops": "positive integer",
-        "api-rate-limit": "positive integer",
-        "tools": "string or list of strings",
-        "exclude-tools": "string or list of strings",
-        "config-overrides": "list of strings",
-        "log-level": "string",
-        "color": "string",
-        "events-file": "string",
-        "last-message-file": "string",
-        "skip-confirmations": "boolean",
-        "continue": "boolean",
-        "debug": "boolean",
-        "quiet": "boolean",
-        "timeout": "positive number",
-        "raw-args": "list of strings",
-        "additional-dirs": "list (ignored by vtcode)",
-        "mcp-servers": "list (ignored by vtcode)",
-        "mcp-config-file": "string (ignored by vtcode)",
-    }
-
-    ANTIGRAVITY_OPTION_SPEC = {
-        "model": "string",
-        "effort": "string",
-        "agent": "string",
-        "permissions": "list of strings",
-        "session-id": "string",
-        "output-format": "string",
-        "skip-confirmations": "boolean",
-        "continue": "boolean",
-        "sandbox": "boolean",
-        "json-schema": "string",
-        "settings": "string",
-        "project": "string",
-        "log-file": "string",
-        "disable-slash-commands": "boolean",
-        "timeout": "positive number",
-        "raw-args": "list of strings",
-        "additional-dirs": "list of directories",
-        "mcp-servers": "list (ignored by agy)",
-        "mcp-config-file": "string (ignored by agy)",
-    }
-
-    AGENT_OPTION_SPECS = {
-        "pi": PI_OPTION_SPEC,
-        "vtcode": VTCODE_OPTION_SPEC,
-        "antigravity": ANTIGRAVITY_OPTION_SPEC,
-    }
-    AGENT_STRING_OPTIONS = {
-        "pi": ["model", "provider", "thinking", "title", "session-id",
-               "output-format", "session-dir", "system-prompt", "mcp-config-file"],
-        "vtcode": ["model", "provider", "session-id", "output-format",
-                   "security-level", "log-level", "color", "events-file",
-                   "last-message-file", "mcp-config-file"],
-        "antigravity": ["model", "effort", "agent", "session-id", "output-format",
-                        "json-schema", "settings", "project", "log-file",
-                        "mcp-config-file"],
-    }
-    AGENT_BOOL_OPTIONS = {
-        "pi": ["skip-confirmations", "no-tools", "continue", "session",
-               "debug", "no-extensions", "no-builtin-tools", "no-context-files",
-               "no-mcp"],
-        "vtcode": ["skip-confirmations", "continue", "debug", "quiet"],
-        "antigravity": ["skip-confirmations", "continue", "sandbox",
-                        "disable-slash-commands"],
-    }
-    AGENT_STRING_OR_LIST_OPTIONS = {
-        "pi": ["tools", "exclude-tools", "append-system-prompt"],
-        "vtcode": ["tools", "exclude-tools"],
-        "antigravity": [],
-    }
-    AGENT_LIST_OF_STRINGS_OPTIONS = {
-        "pi": ["extensions", "skills"],
-        "vtcode": ["config-overrides"],
-        "antigravity": ["permissions"],
-    }
-    AGENT_POSITIVE_INT_OPTIONS = {
-        "pi": [],
-        "vtcode": ["max-tool-calls", "max-concurrent-ops", "api-rate-limit"],
-        "antigravity": [],
-    }
-    AGENT_ENUM_OPTIONS = {
-        "pi": {"thinking": PI_THINKING_LEVELS, "output-format": PI_OUTPUT_FORMATS},
-        "vtcode": {
-            "output-format": ["text", "json"],
-            "security-level": ["strict", "moderate", "permissive"],
-            "log-level": ["error", "warn", "info", "debug", "trace"],
-            "color": ["auto", "always", "never"],
-        },
-        "antigravity": {
-            "output-format": ["text", "json", "stream-json"],
-            "effort": ["low", "medium", "high", "xhigh", "max"],
-        },
-    }
+    AGENT_OPTION_SPECS = AGENT_OPTION_SPECS
+    PI_OPTION_SPEC = AGENT_OPTION_SPECS["pi"]
+    PI_THINKING_LEVELS = list(ADAPTERS["pi"].option_spec["thinking"].values)
+    PI_OUTPUT_FORMATS = list(ADAPTERS["pi"].option_spec["output-format"].values)
+    VTCODE_OPTION_SPEC = AGENT_OPTION_SPECS["vtcode"]
+    ANTIGRAVITY_OPTION_SPEC = AGENT_OPTION_SPECS["antigravity"]
 
     def _validate_agent_config(self, agent, config, where="cli-agent-config"):
-        """Validate adapter options for the active agent: keys, types, enum values."""
-        spec = self.AGENT_OPTION_SPECS[agent]
+        """Validate adapter options against the adapter's declared option spec."""
+        adapter_class = ADAPTERS[agent]
+        spec = adapter_class.option_spec
 
         def fail(message):
             raise ValidationError(
@@ -183,44 +71,36 @@ class SchemaValidator:
                 )
             )
 
-        for key in config:
-            if key not in spec:
+        for key, value in config.items():
+            if value is None:
+                # YAML `key:` with no value means "unset", not a type error.
+                continue
+            option = spec.get(key)
+            if option is None:
                 fail("Unknown {} option '{}'".format(agent, key))
 
-        for key in self.AGENT_STRING_OPTIONS[agent]:
-            if key in config and not isinstance(config[key], str):
-                fail("{} option '{}' must be a string, got {}".format(
-                    agent, key, type(config[key]).__name__))
-
-        for key in self.AGENT_BOOL_OPTIONS[agent]:
-            if key in config and not isinstance(config[key], bool):
-                fail("{} option '{}' must be a boolean, got {}".format(
-                    agent, key, type(config[key]).__name__))
-
-        if "timeout" in config:
-            value = config["timeout"]
-            if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
-                fail("{} option 'timeout' must be a positive number, got {!r}".format(agent, value))
-
-        for key in self.AGENT_POSITIVE_INT_OPTIONS[agent]:
-            if key in config:
-                value = config[key]
+            kind = option.kind
+            if kind == "str":
+                if not isinstance(value, str):
+                    fail("{} option '{}' must be a string, got {}".format(
+                        agent, key, type(value).__name__))
+            elif kind == "bool":
+                if not isinstance(value, bool):
+                    fail("{} option '{}' must be a boolean, got {}".format(
+                        agent, key, type(value).__name__))
+            elif kind == "int":
                 if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                     fail("{} option '{}' must be a positive integer, got {!r}".format(
                         agent, key, value))
-
-        list_options = ["raw-args", "additional-dirs", "mcp-servers"]
-        list_options.extend(self.AGENT_LIST_OF_STRINGS_OPTIONS[agent])
-        for key in list_options:
-            if key in config:
-                value = config[key]
+            elif kind == "number":
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+                    fail("{} option '{}' must be a positive number, got {!r}".format(
+                        agent, key, value))
+            elif kind == "list":
                 if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
                     fail("{} option '{}' must be a list of strings, got {!r}".format(
                         agent, key, value))
-
-        for key in self.AGENT_STRING_OR_LIST_OPTIONS[agent]:
-            if key in config:
-                value = config[key]
+            elif kind == "str_or_list":
                 if isinstance(value, str):
                     if not value.strip():
                         fail("{} option '{}' must not be empty".format(agent, key))
@@ -231,17 +111,17 @@ class SchemaValidator:
                 else:
                     fail("{} option '{}' must be a string or list of strings, got {}".format(
                         agent, key, type(value).__name__))
+            elif kind == "enum":
+                if value not in option.values:
+                    fail("{} option '{}' must be one of {}, got '{}'".format(
+                        agent, key, list(option.values), value))
 
-        for key, allowed in self.AGENT_ENUM_OPTIONS[agent].items():
-            if key in config and config[key] not in allowed:
-                fail("{} option '{}' must be one of {}, got '{}'".format(
-                    agent, key, allowed, config[key]))
+        if "session-id" in config:
+            session_id = config["session-id"]
+            if not isinstance(session_id, str) or not session_id.strip():
+                fail("{} option 'session-id' must not be empty".format(agent))
 
-        if "session-id" in config and not config["session-id"].strip():
-            fail("{} option 'session-id' must not be empty".format(agent))
-
-        if agent == "pi" and "provider" in config and "model" not in config:
-            fail("pi option 'provider' requires 'model' (the CLI rejects --provider alone)")
+        adapter_class().cross_validate(config, fail)
 
     def _validate_pi_config(self, config, where="cli-agent-config"):
         """Backward-compatible wrapper for the pi option validator."""
@@ -321,10 +201,7 @@ class SchemaValidator:
         # Adapter-specific option validation. pi options are enumerated, so an
         # option copied from another adapter fails here rather than at run time.
         self._agent = workflow_dict.get("cli-agent", "claude")
-        if (
-            self._agent in self.AGENT_OPTION_SPECS
-            and isinstance(workflow_dict.get("cli-agent-config"), dict)
-        ):
+        if isinstance(workflow_dict.get("cli-agent-config"), dict):
             self._validate_agent_config(self._agent, workflow_dict["cli-agent-config"])
 
         # Validate optional field: on-error
@@ -440,10 +317,7 @@ class SchemaValidator:
                         f"got {type(task_def).__name__}"
                     )
 
-                if (
-                    self._agent in self.AGENT_OPTION_SPECS
-                    and isinstance(task_def.get("cli-agent-config"), dict)
-                ):
+                if isinstance(task_def.get("cli-agent-config"), dict):
                     self._validate_agent_config(
                         self._agent,
                         task_def["cli-agent-config"],

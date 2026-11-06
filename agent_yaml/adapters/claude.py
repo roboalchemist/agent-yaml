@@ -8,70 +8,134 @@ Maps generic configurations to Claude-specific CLI arguments:
 - debug: true → --debug
 - tools: "default" (default) → --tools "default"; no-tools → --tools ""
 - exclude-tools: [...] → --disallowed-tools a,b
-- output-format: "stream-json" → --verbose --output-format stream-json
-- session-id: "uuid" → --session-id uuid; continue → --continue
+- output-format: stream-json → --verbose --output-format stream-json
+- session-id: uuid → --session-id; continue → --continue
 - session: false → --no-session-persistence
-- agent: "build" → --agent build
-- title: "..." → --name "..."
-- effort: "high" → --effort high
-- mcp-config-file: "..." → --mcp-config "..."
-- permissions: [mode] → --permission-mode mode (first entry wins)
-- json-schema: <json|path> → --json-schema ...
-- system-prompt / append-system-prompt → matching flags
-- settings: <json|path> → --settings ...
-- max-budget: 2.5 → --max-budget-usd 2.5
-- fallback-model: "sonnet" → --fallback-model sonnet
-- disable-slash-commands: true → --disable-slash-commands
-- raw-args: [...] → appended after the translated flags
-- timeout: 3600 → subprocess timeout (not CLI arg)
+- agent / title / effort → --agent / --name / --effort
+- mcp-config-file → --mcp-config
+- permissions[0] → --permission-mode
+- json-schema / system-prompt / append-system-prompt / settings / max-budget /
+  fallback-model / disable-slash-commands → matching flags
+- raw-args → appended before the prompt
+- prompt: --print PROMPT
 
-`mcp-servers` has no per-server flag in Claude 2.x (`--allowed-mcp-server-names` was removed);
-scope servers in the MCP config file instead. It warns and is ignored.
+mcp-servers has no per-server flag in Claude 2.x and is ignored with a remediation hint.
 
-CLI tool: claude-code or claude (detection via which)
-
-Default behavior: Uses --print mode with tools enabled for non-interactive agentic execution.
+CLI tool: claude-code or claude.
 """
 
 import logging
-import shutil
-
-from .base import BaseAdapter
 
 logger = logging.getLogger(__name__)
+
+from .base import (
+    BaseAdapter,
+    BOOL,
+    ENUM,
+    IGNORED,
+    IGNORED_SILENT,
+    LIST,
+    NUMBER,
+    STR,
+    STR_OR_LIST,
+)
+
+_IGNORED = {
+    key: IGNORED_SILENT
+    for key in (
+        "provider",
+        "thinking",
+        "no-extensions",
+        "web-search",
+        "server",
+        "standalone",
+        "security-level",
+        "max-tool-calls",
+        "quiet",
+        "sandbox",
+        "last-message-file",
+        "project",
+        "log-file",
+        "log-level",
+        "color",
+        "files",
+        "images",
+        "enable",
+        "ignore-user-config",
+        "ignore-rules",
+        "events-file",
+        "max-concurrent-ops",
+        "api-rate-limit",
+        "config-overrides",
+        "session-dir",
+        "no-context-files",
+        "no-mcp",
+        "no-builtin-tools",
+        "skills",
+        "extensions",
+    )
+}
 
 
 class ClaudeAdapter(BaseAdapter):
     """Adapter for Claude CLI (claude-code)."""
 
-    # Legacy generic names mapped to the aliases the current CLI documents.
+    name = "claude"
+    executables = ("claude-code", "claude")
+    install_hint = "claude-code or claude"
+    fallback_executable = "claude"
+    prompt_style = "flag"
+    prompt_flag = "--print"
+
     MODEL_MAPPING = {
         "sonnet-4.5": "sonnet",
         "opus-4": "opus",
     }
 
-    def __init__(self, tool_config=None):
-        """Initialize Claude adapter."""
-        super().__init__("claude", tool_config)
+    option_spec = {
+        "model": STR,
+        "session-id": STR,
+        "continue": BOOL,
+        "title": STR,
+        "agent": STR,
+        "permissions": LIST,
+        "output-format": ENUM("text", "json", "stream-json"),
+        "skip-confirmations": BOOL,
+        "debug": BOOL,
+        "raw-args": LIST,
+        "additional-dirs": LIST,
+        "mcp-config-file": STR,
+        "mcp-servers": IGNORED(
+            "Claude 2.x has no per-server CLI allow flag; scope servers in the MCP config file"
+        ),
+        "tools": STR_OR_LIST,
+        "exclude-tools": STR_OR_LIST,
+        "no-tools": BOOL,
+        "session": BOOL,
+        "effort": ENUM("low", "medium", "high", "xhigh", "max"),
+        "json-schema": STR,
+        "system-prompt": STR,
+        "append-system-prompt": STR_OR_LIST,
+        "settings": STR,
+        "max-budget": NUMBER,
+        "fallback-model": STR,
+        "disable-slash-commands": BOOL,
+        "timeout": NUMBER,
+        **_IGNORED,
+    }
+
+    live_exempt = {
+        "max-budget": "spend caps are account-sensitive; argv is parse-verified",
+        "settings": "a settings file changes the operator's Claude install; parse-verified only",
+        "mcp-config-file": "needs a real MCP server definition",
+        "no-tools": "covered by the tools allowlist cases; disabling all tools has no turn to assert",
+        "raw-args": "verbatim passthrough; covered by the adapter unit tests",
+        "agent": "needs a user-defined Claude agent",
+    }
 
     def build_command(self, task_config, prompt):
-        """
-        Build Claude CLI command from task configuration.
-
-        Args:
-            task_config: Task configuration dict
-            prompt: Interpolated prompt string
-
-        Returns:
-            list: Command as list of strings (argv format)
-        """
-        cmd = []
-        if shutil.which("claude-code"):
-            cmd.append("claude-code")
-        elif shutil.which("claude"):
-            cmd.append("claude")
-        else:
-            cmd.append("claude")  # Default, will fail in check_available
+        """Build Claude CLI command from task configuration."""
+        cmd = [self.executable()]
 
         if task_config.get("skip-confirmations"):
             cmd.append("--dangerously-skip-permissions")
@@ -91,13 +155,11 @@ class ClaudeAdapter(BaseAdapter):
         else:
             tools = task_config.get("tools", "default")
             if tools:
-                cmd.extend(["--tools", tools])
+                cmd.extend(["--tools", self.join_list(tools)])
 
         exclude_tools = task_config.get("exclude-tools")
         if exclude_tools:
-            if isinstance(exclude_tools, (list, tuple)):
-                exclude_tools = ",".join(str(tool) for tool in exclude_tools)
-            cmd.extend(["--disallowed-tools", exclude_tools])
+            cmd.extend(["--disallowed-tools", self.join_list(exclude_tools)])
 
         output_format = task_config.get("output-format")
         if output_format is None:
@@ -128,13 +190,6 @@ class ClaudeAdapter(BaseAdapter):
         if effort:
             cmd.extend(["--effort", effort])
 
-        mcp_servers = task_config.get("mcp-servers", [])
-        if mcp_servers:
-            logger.warning(
-                "claude has no per-server CLI allow flag; configure mcp-servers inside the "
-                "MCP config file (see mcp-config-file) instead"
-            )
-
         mcp_config_file = task_config.get("mcp-config-file")
         if mcp_config_file:
             cmd.extend(["--mcp-config", mcp_config_file])
@@ -142,7 +197,7 @@ class ClaudeAdapter(BaseAdapter):
         permissions = task_config.get("permissions", [])
         if permissions:
             if len(permissions) > 1:
-                logger.warning(
+                self.logger.warning(
                     f"claude uses only the first permission mode; ignoring {permissions[1:]}"
                 )
             cmd.extend(["--permission-mode", permissions[0]])
@@ -171,19 +226,10 @@ class ClaudeAdapter(BaseAdapter):
         if task_config.get("disable-slash-commands"):
             cmd.append("--disable-slash-commands")
 
+        self.warn_ignored(task_config)
+
         raw_args = task_config.get("raw-args", [])
         if raw_args:
             cmd.extend(raw_args)
 
-        cmd.extend(["--print", prompt])
-
-        return cmd
-
-    def check_available(self):
-        """
-        Check if Claude CLI is available in PATH.
-
-        Returns:
-            bool: True if tool is available
-        """
-        return shutil.which("claude-code") is not None or shutil.which("claude") is not None
+        return self.append_prompt(cmd, prompt)

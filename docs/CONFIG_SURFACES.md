@@ -81,10 +81,10 @@ it (task values win) before the adapter builds the command.
 | executor | Not a CLI flag: the executor applies the subprocess timeout |
 | no `--flag` | The option removes that flag rather than adding one |
 
-Only `pi`, `vtcode`, and `antigravity` validate their option bag strictly. `opencode`, `claude`, and
-`codex` accept arbitrary keys and silently ignore anything their adapter does not read, so a typo
-only shows up as a no-op. Use one of the strict harnesses when you want a typo caught at validate
-time.
+Every harness validates its option bag strictly: an unknown key fails `agent-yaml validate` with
+the adapter's full allowed list. Keys another harness owns appear in the matrix as `ignored`, so
+they validate but do nothing; a real typo is rejected instead of silently ignored. `raw-args` is the
+escape hatch for a flag the adapter does not model yet.
 
 `sandbox` is deliberately two types: a boolean on `antigravity` (turn on the terminal sandbox) and a
 mode string on `codex` (`read-only`, `workspace-write`, `danger-full-access`).
@@ -98,7 +98,7 @@ mode string on `codex` (`read-only`, `workspace-write`, `danger-full-access`).
 | `codex` | `skip-confirmations` uses the approvals-and-sandbox bypass; `permissions` maps either a sandbox mode or `-c approval_policy=…`. `continue`/`session-id` switch to `codex exec resume`, which has no `--sandbox` or `--add-dir`, so those warn and drop on resume. `debug` has no headless equivalent and warns. `web-search` is `--enable web_search`. |
 | `pi` | Sessions are ephemeral by default (`--no-session`); `session: true` keeps them, `session-id`/`continue` replace the flag, and `session: false` (explicit) adds `--no-approve`. `provider` requires `model` (the CLI rejects `--provider` alone). `debug` maps to `--verbose`, which pi only uses in the interactive TUI. |
 | `vtcode` | Runs `vtcode exec`; `continue` switches to `vtcode exec resume --last` (or `resume <session-id>`), which lacks `--json`, `--events`, and `--last-message-file`, so those warn and drop on resume. `security-level`, `max-tool-calls`, `max-concurrent-ops`, `api-rate-limit`, `quiet`, and `config-overrides` are vtcode-only. Needs `[automation.full_auto]` in the workspace `vtcode.toml`. |
-| `antigravity` | Runs `agy -p`. `permissions` maps to `--mode` (`plan`, `accept-edits`, `auto`) or `--dangerously-skip-permissions` for yolo/never. `effort`, `sandbox`, `agent`, `json-schema`, `settings`, `project`, `log-file`, and `disable-slash-commands` are supported; `timeout` also becomes `--print-timeout`. Model slugs come from `agy models` and differ per account. |
+| `antigravity` | Runs `agy -p`. `permissions` maps to `--mode` (`plan`, `accept-edits`, `auto`) or `--dangerously-skip-permissions` for yolo/never. `effort`, `sandbox`, `agent`, `json-schema`, `settings`, `project`, `log-file`, and `disable-slash-commands` are supported; `timeout` also becomes `--print-timeout`. `json-schema` requires `output-format: json` or `stream-json` (validated). Model slugs come from `agy models` and differ per account. |
 
 ## Deliberately Not Exposed
 
@@ -131,12 +131,12 @@ or corrupt a one-shot subprocess; anything secret would land in argv or process 
 
 ## Live Coverage
 
-The mapping cells are verified offline against the adapters by the test below. Live inference has
-been run for `pi`, `vtcode`, and `antigravity` through their matrices
-(`scripts/validate_pi_params.py`, `scripts/validate_vtcode_params.py`,
-`scripts/validate_antigravity_params.py`). `opencode`, `claude`, and `codex` mapping cells are
-verified against their installed binaries' argument parsers (unknown flags exit 2), not by model
-calls.
+The mapping cells are verified offline against the adapters by the test below. Every harness has a
+live matrix built on the shared runner (`scripts/harness_matrix.py`): `validate_pi_params.py`,
+`validate_vtcode_params.py`, `validate_antigravity_params.py`, `validate_opencode_params.py`,
+`validate_claude_params.py`, `validate_codex_params.py`. The pi, vtcode, antigravity, and opencode
+matrices have been run live here; the claude and codex matrices need an authenticated account
+(Claude OAuth session, Codex credits) and are coverage-checked but not run in this environment.
 
 ## How This Table Is Checked
 
@@ -148,3 +148,17 @@ this page fails that test.
 ```bash
 pytest tests/unit/test_config_surface_matrix.py
 ```
+
+Run a harness's live matrix (one shared runner, same flags for all six):
+
+```bash
+python scripts/validate_pi_params.py          --model <provider/model>
+python scripts/validate_claude_params.py      --model <model>
+python scripts/validate_codex_params.py       --model <model>
+python scripts/validate_opencode_params.py    --model <provider/model>
+python scripts/validate_vtcode_params.py      --model <provider/model>
+python scripts/validate_antigravity_params.py --model <model slug>
+```
+
+Each matrix takes `--only`, `--tag`, `--timeout`, and `--verbose`, and prints the number of surfaces
+covered plus a pass/fail line per case.

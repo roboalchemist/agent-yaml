@@ -106,9 +106,19 @@ def test_task_level_config_is_ignored_for_other_agents():
     validate(workflow(agent="opencode", task=task))
 
 
-def _load_matrix():
-    path = REPO_ROOT / "scripts" / "validate_pi_params.py"
-    spec = importlib.util.spec_from_file_location("validate_pi_params", path)
+MATRICES = {
+    "opencode": ("validate_opencode_params", ("anthropic/claude-sonnet-5-5",)),
+    "claude": ("validate_claude_params", ("sonnet",)),
+    "codex": ("validate_codex_params", ("gpt-5-codex",)),
+    "pi": ("validate_pi_params", ("provider/model",)),
+    "vtcode": ("validate_vtcode_params", ("chunglet/deepseek-v4.1-flash",)),
+    "antigravity": ("validate_antigravity_params", ("gemini-3.8-flash-high",)),
+}
+
+
+def _load_matrix(module_name):
+    path = REPO_ROOT / "scripts" / f"{module_name}.py"
+    spec = importlib.util.spec_from_file_location(module_name, path)
     module = importlib.util.module_from_spec(spec)
     # Register before exec so dataclass field resolution can find the module.
     sys.modules[spec.name] = module
@@ -116,58 +126,50 @@ def _load_matrix():
     return module
 
 
-def test_live_matrix_covers_every_validated_option():
-    """Every option the validator accepts is exercised by the live matrix."""
-    matrix = _load_matrix()
+@pytest.mark.parametrize("agent", list(MATRICES))
+def test_live_matrix_covers_every_surface(agent):
+    """Every mapped surface has a live case, or a recorded exemption."""
+    from agent_yaml.adapters import ADAPTERS
+
+    module_name, args = MATRICES[agent]
+    matrix = _load_matrix(module_name)
+    adapter = ADAPTERS[agent]
+
     covered = set()
-    for case in matrix.cases("provider/model"):
+    for case in matrix.cases(*args):
         covered.update(case.config)
 
-    not_exercised = {"skills", "extensions"}  # need an installed skill/extension to run
-    assert covered | not_exercised == set(SchemaValidator.PI_OPTION_SPEC)
-    assert not (covered & not_exercised)
+    ignored = {key for key, option in adapter.option_spec.items() if option.kind == "ignored"}
+    exempt = set(adapter.live_exempt)
+    required = set(adapter.option_spec) - ignored - exempt - {"model", "provider"}
+
+    assert not (required - covered), f"{agent} has surfaces without a live case"
+    assert not (covered & ignored), f"{agent} covers ignored options"
 
 
-def _load_vtcode_matrix():
-    path = REPO_ROOT / "scripts" / "validate_vtcode_params.py"
-    spec = importlib.util.spec_from_file_location("validate_vtcode_params", path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+def test_antigravity_json_schema_requires_json_output():
+    with pytest.raises(ValidationError) as exc_info:
+        validate(workflow({"json-schema": "schema.json"}, agent="antigravity"))
+    assert "requires output-format 'json' or 'stream-json'" in str(exc_info.value)
 
 
-def _load_antigravity_matrix():
-    path = REPO_ROOT / "scripts" / "validate_antigravity_params.py"
-    spec = importlib.util.spec_from_file_location("validate_antigravity_params", path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_antigravity_live_matrix_covers_every_validated_option():
-    """Every antigravity option is exercised live or documented as not exercisable."""
-    matrix = _load_antigravity_matrix()
-    covered = set()
-    for case in matrix.cases("gemini-3.8-flash"):
-        covered.update(case.config)
-
-    not_exercised = {"agent", "project", "mcp-servers", "mcp-config-file"}
-    assert covered | not_exercised == set(SchemaValidator.ANTIGRAVITY_OPTION_SPEC)
-    assert not (covered & not_exercised)
-
-
-def test_vtcode_live_matrix_covers_every_validated_option():
-    """Every vtcode option is either exercised live or explicitly warned-and-dropped."""
-    matrix = _load_vtcode_matrix()
-    covered = set()
-    for case in matrix.cases("bifrost", "chunglet/deepseek-v4.1-flash"):
-        covered.update(case.config)
-
-    ignored = {"additional-dirs", "mcp-servers", "mcp-config-file"}
-    assert covered | ignored == set(SchemaValidator.VTCODE_OPTION_SPEC)
-    assert not (covered & ignored)
+@pytest.mark.parametrize(
+    "agent, config",
+    [
+        ("opencode", {"output-format": "xml"}),
+        ("claude", {"output-format": "xml"}),
+        ("codex", {"output-format": "xml"}),
+        ("pi", {"output-format": "stream-json"}),
+        ("vtcode", {"output-format": "stream-json"}),
+        ("antigravity", {"output-format": "xml"}),
+        ("opencode", {"not-a-key": 1}),
+        ("claude", {"not-a-key": 1}),
+        ("codex", {"not-a-key": 1}),
+    ],
+)
+def test_every_harness_validates_its_option_spec(agent, config):
+    with pytest.raises(ValidationError):
+        validate(workflow(config, agent=agent))
 
 
 @pytest.mark.parametrize(

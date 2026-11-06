@@ -2,44 +2,38 @@
 Antigravity CLI adapter (Google Antigravity `agy`).
 
 Maps generic configurations onto agy's flags:
-- skip-confirmations: true → --dangerously-skip-permissions
-- model: "gemini-3.8-flash-high" → --model ...
-- effort: low|medium|high|xhigh|max → --effort ...
-- agent: "reviewer" → --agent ...
-- permissions: ["plan"] → --mode plan (accept-edits|auto|plan; first entry wins)
-- output-format: "json"|"stream-json" → --output-format ... ("text" is the default)
-- session-id: "abc" → --conversation abc (resume by conversation id)
-- continue: true → --continue (most recent conversation; session-id wins)
-- sandbox: true → --sandbox (terminal sandbox restrictions)
-- additional-dirs: [DIR, ...] → --add-dir DIR (repeated)
-- timeout: 600 → --print-timeout 600s (the executor still enforces its own limit)
-- json-schema: <json|path> → --json-schema ...
-- settings: <json|path> → --settings ... (session-only, never persisted)
-- project: "proj" → --project proj
-- log-file: path → --log-file path
-- disable-slash-commands: true → --disable-slash-commands
-- raw-args: [...] → appended after translated flags, before the prompt
+- skip-confirmations → --dangerously-skip-permissions
+- model / effort / agent → --model / --effort / --agent
+- permissions[0] → --mode plan|accept-edits|auto (yolo/never → --dangerously-skip-permissions)
+- output-format → --output-format text|json|stream-json
+- session-id / continue → --conversation ID / --continue
+- sandbox → --sandbox
+- additional-dirs → --add-dir (repeated)
+- timeout → --print-timeout Ns (the executor still enforces its own limit)
+- json-schema / settings / project / log-file → matching flags
+- disable-slash-commands → --disable-slash-commands
+- raw-args → appended before the prompt
+- prompt: -p PROMPT (the value of --print)
 
-`permissions` aliases: plan-only → plan, auto-edit → accept-edits, and
-yolo/never/bypass → --dangerously-skip-permissions.
+mcp-servers and mcp-config-file are ignored with a hint (use `agy mcp add` or the
+settings file).
 
-Unsupported (warning logged, value ignored): mcp-servers, mcp-config-file.
-MCP servers are managed with `agy mcp add` or `~/.gemini/antigravity-cli/settings.json`.
-
-Non-interactive mode is `agy -p "<prompt>"`, which prints the response and exits. `-p` is
-`--print`'s alias and takes the next argument as the prompt, so the prompt is its value.
-
-CLI tool: agy (Antigravity CLI, https://antigravity.google/docs/cli)
-
-Reference: spec/ADAPTER_SPEC.md for the cross-adapter mapping tables.
+CLI tool: agy (https://antigravity.google/docs/cli)
 """
 
 import logging
-import shutil
-
-from .base import BaseAdapter
 
 logger = logging.getLogger(__name__)
+
+from .base import (
+    BaseAdapter,
+    BOOL,
+    ENUM,
+    IGNORED,
+    LIST,
+    NUMBER,
+    STR,
+)
 
 MODE_ALIASES = {
     "plan-only": "plan",
@@ -51,21 +45,56 @@ BYPASS_MODES = ("yolo", "never", "bypass", "bypass-permissions")
 class AntigravityAdapter(BaseAdapter):
     """Adapter for the Antigravity CLI (`agy`)."""
 
-    def __init__(self, tool_config=None):
-        """Initialize Antigravity adapter."""
-        super().__init__("antigravity", tool_config)
+    name = "antigravity"
+    executables = ("agy",)
+    install_hint = "agy"
+    prompt_style = "flag"
+    prompt_flag = "-p"
+
+    option_spec = {
+        "model": STR,
+        "effort": ENUM("low", "medium", "high", "xhigh", "max"),
+        "agent": STR,
+        "permissions": LIST,
+        "session-id": STR,
+        "output-format": ENUM("text", "json", "stream-json"),
+        "skip-confirmations": BOOL,
+        "continue": BOOL,
+        "sandbox": BOOL,
+        "json-schema": STR,
+        "settings": STR,
+        "project": STR,
+        "log-file": STR,
+        "disable-slash-commands": BOOL,
+        "timeout": NUMBER,
+        "raw-args": LIST,
+        "additional-dirs": LIST,
+        "mcp-servers": IGNORED(
+            "add servers with `agy mcp add` or in ~/.gemini/antigravity-cli/settings.json"
+        ),
+        "mcp-config-file": IGNORED(
+            "add servers with `agy mcp add` or in ~/.gemini/antigravity-cli/settings.json"
+        ),
+    }
+
+    def cross_validate(self, config, fail):
+        if "json-schema" in config and config.get("output-format", "text") not in (
+            "json",
+            "stream-json",
+        ):
+            fail(
+                "antigravity option 'json-schema' requires output-format 'json' or "
+                "'stream-json' (the CLI rejects it otherwise)"
+            )
+
+    live_exempt = {
+        "project": "no named Antigravity project is configured for this account",
+        "raw-args": "verbatim passthrough; covered by the adapter unit tests",
+        "agent": "no custom agents are configured on this account",
+    }
 
     def build_command(self, task_config, prompt):
-        """
-        Build an `agy` headless command from task configuration.
-
-        Args:
-            task_config: Task configuration dict (merged cli-agent-config)
-            prompt: Interpolated prompt string
-
-        Returns:
-            list: Command as list of strings (argv format)
-        """
+        """Build an `agy` headless command from task configuration."""
         cmd = ["agy"]
 
         if task_config.get("skip-confirmations"):
@@ -86,7 +115,7 @@ class AntigravityAdapter(BaseAdapter):
         permissions = task_config.get("permissions", [])
         if permissions:
             if len(permissions) > 1:
-                logger.warning(
+                self.logger.warning(
                     f"antigravity uses only the first permission mode; ignoring {permissions[1:]}"
                 )
             mode = permissions[0]
@@ -102,7 +131,7 @@ class AntigravityAdapter(BaseAdapter):
         session_id = task_config.get("session-id")
         if session_id:
             if task_config.get("continue"):
-                logger.warning(
+                self.logger.warning(
                     "antigravity session-id and continue are mutually exclusive; "
                     "resuming the session-id"
                 )
@@ -133,27 +162,10 @@ class AntigravityAdapter(BaseAdapter):
         if task_config.get("disable-slash-commands"):
             cmd.append("--disable-slash-commands")
 
-        for unsupported in ("mcp-servers", "mcp-config-file"):
-            if task_config.get(unsupported):
-                logger.warning(
-                    f"antigravity adapter ignores '{unsupported}'; add servers with "
-                    "`agy mcp add` or in ~/.gemini/antigravity-cli/settings.json"
-                )
+        self.warn_ignored(task_config)
 
         raw_args = task_config.get("raw-args", [])
         if raw_args:
             cmd.extend(raw_args)
 
-        # -p/--print takes the prompt as its value.
-        cmd.extend(["-p", prompt])
-
-        return cmd
-
-    def check_available(self):
-        """
-        Check if the Antigravity CLI is available in PATH.
-
-        Returns:
-            bool: True if the `agy` executable is found
-        """
-        return shutil.which("agy") is not None
+        return self.append_prompt(cmd, prompt)

@@ -120,9 +120,9 @@ cli-agent-config:
 `apiKey` accepts an environment variable name, a `!command` that prints the key, or a literal value.
 `--provider gateway --model vendor/model-name` is the same selection written as two flags.
 
-Every option above is validated at parse time. Unknown keys, wrong types, and values pi would reject
-(an unsupported `thinking` level or `output-format`) fail `agent-yaml validate` with the allowed
-list, before any model call. `session-id` maps to `--session-id`, which creates the session when it
+Every option is validated at parse time for every harness. Unknown keys, wrong types, and values
+the CLI would reject (an unsupported `thinking` level or `output-format`) fail `agent-yaml validate`
+with the allowed list, before any model call. `session-id` maps to `--session-id`, which creates the session when it
 does not exist, unlike pi's `--session`, which fails with "No session found matching".
 
 To re-check the mapping against live inference across every option, run the matrix:

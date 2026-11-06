@@ -362,42 +362,28 @@ UNSUPPORTED_SETTINGS = [
         CodexAdapter,
         "debug",
         True,
-        "codex exec has no debug flag; ignoring debug",
+        "codex adapter ignores 'debug'; codex exec has no debug flag",
         id="codex-debug",
-    ),
-    pytest.param(
-        OpenCodeAdapter,
-        "output-format",
-        "stream-json",
-        "OpenCode does not support output-format 'stream-json'",
-        id="opencode-output-format-stream-json",
-    ),
-    pytest.param(
-        OpenCodeAdapter,
-        "output-format",
-        "markdown",
-        "OpenCode does not support output-format 'markdown'",
-        id="opencode-output-format-other",
     ),
     pytest.param(
         OpenCodeAdapter,
         "additional-dirs",
         ["/srv/extra-dir"],
-        "OpenCode adapter ignores 'additional-dirs'; configure it in opencode.json",
+        "opencode adapter ignores 'additional-dirs'; configure it in opencode.json",
         id="opencode-additional-dirs",
     ),
     pytest.param(
         OpenCodeAdapter,
         "mcp-servers",
         ["notion", "linear"],
-        "OpenCode adapter ignores 'mcp-servers'; configure it in opencode.json",
+        "opencode adapter ignores 'mcp-servers'; configure it in opencode.json",
         id="opencode-mcp-servers",
     ),
     pytest.param(
         OpenCodeAdapter,
         "mcp-config-file",
         "/path/to/mcp-config.json",
-        "OpenCode adapter ignores 'mcp-config-file'; configure it in opencode.json",
+        "opencode adapter ignores 'mcp-config-file'; configure it in opencode.json",
         id="opencode-mcp-config-file",
     ),
 ]
@@ -806,11 +792,6 @@ class TestPiAdapter:
         assert cmd == build(PiAdapter, {})
         assert any(option in message for message in warnings)
 
-    def test_unknown_output_format_warns(self):
-        cmd, warnings = build_with_warnings(PiAdapter, {"output-format": "stream-json"})
-
-        assert "--mode" not in cmd
-        assert any("stream-json" in message for message in warnings)
 
     def test_adapter_requests_empty_stdin(self):
         assert PiAdapter.needs_empty_stdin is True
@@ -855,11 +836,6 @@ class TestVTCodeAdapter:
         assert cmd == build(VTCodeAdapter, {})
         assert any(option in message for message in warnings)
 
-    def test_unknown_output_format_warns(self):
-        cmd, warnings = build_with_warnings(VTCodeAdapter, {"output-format": "stream-json"})
-
-        assert "--json" not in cmd
-        assert any("stream-json" in message for message in warnings)
 
 
 class TestAntigravityAdapter:

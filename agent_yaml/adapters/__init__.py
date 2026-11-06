@@ -1,9 +1,13 @@
 """
-CLI adapter modules for different AI agent tools.
+CLI harness adapter registry.
 
-Provides tool-specific adapters that translate generic workflow configurations
-into tool-specific CLI invocations for OpenCode, Claude, Codex, pi, vtcode, and Antigravity.
+Adapters share one interface (see ``base.BaseAdapter``): each declares its name,
+binaries, install hint, prompt style, option spec, and live-test exemptions. The
+registry, the schema validator, and the test matrices all read that metadata, so
+adding a harness means writing one adapter and adding it to ``ADAPTERS``.
 """
+
+import logging
 
 from .antigravity import AntigravityAdapter
 from .base import BaseAdapter
@@ -13,88 +17,74 @@ from .opencode import OpenCodeAdapter
 from .pi import PiAdapter
 from .vtcode import VTCodeAdapter
 
-
-class UnsupportedCLIError(Exception):
-    """Exception raised when an unsupported or unknown CLI agent is specified."""
-
-    pass
+logger = logging.getLogger(__name__)
 
 
-class CLINotFoundError(Exception):
-    """Exception raised when the CLI executable is not found in PATH."""
-
-    pass
+class UnsupportedCLIError(ValueError):
+    """Raised when an unknown CLI agent name is requested."""
 
 
-def get_adapter(cli_agent_name: str) -> BaseAdapter:
+class CLINotFoundError(RuntimeError):
+    """Raised when the requested CLI executable is not on PATH."""
+
+
+# Ordered registry: cli-agent name -> adapter class.
+ADAPTERS = {
+    adapter.name: adapter
+    for adapter in (
+        OpenCodeAdapter,
+        ClaudeAdapter,
+        CodexAdapter,
+        PiAdapter,
+        VTCodeAdapter,
+        AntigravityAdapter,
+    )
+}
+
+
+def get_adapter(cli_agent_name):
     """
-    Factory function to get the appropriate adapter for a CLI agent.
+    Get an adapter instance for a CLI agent.
 
     Args:
-        cli_agent_name: Name of the CLI agent (opencode, claude, codex, pi, vtcode, antigravity)
+        cli_agent_name: Registered adapter name (case-insensitive)
 
     Returns:
-        BaseAdapter: Instance of the appropriate adapter class
+        BaseAdapter: Adapter instance
 
     Raises:
-        UnsupportedCLIError: If the CLI agent name is not recognized
-        CLINotFoundError: If the CLI executable is not found in PATH
-
-    Reference:
-        spec/ADAPTER_SPEC.md lines 627-792 for capability detection and translation logic
+        UnsupportedCLIError: If the name is not registered
+        CLINotFoundError: If the adapter's executable is not on PATH
     """
-    # Normalize to lowercase for case-insensitive matching
     cli_name = cli_agent_name.lower().strip()
-
-    # Map CLI agent names to adapter classes
-    adapter_map = {
-        "opencode": OpenCodeAdapter,
-        "claude": ClaudeAdapter,
-        "codex": CodexAdapter,
-        "pi": PiAdapter,
-        "vtcode": VTCodeAdapter,
-        "antigravity": AntigravityAdapter,
-    }
-
-    # Check if CLI agent is supported
-    if cli_name not in adapter_map:
-        supported_agents = ", ".join(sorted(adapter_map.keys()))
+    adapter_class = ADAPTERS.get(cli_name)
+    if adapter_class is None:
+        supported_agents = ", ".join(sorted(ADAPTERS))
         raise UnsupportedCLIError(
             f"Unsupported CLI agent: '{cli_agent_name}'. Supported agents are: {supported_agents}"
         )
 
-    # Create adapter instance
-    adapter_class = adapter_map[cli_name]
     adapter = adapter_class()
-
-    # Validate that CLI executable is available
     if not adapter.check_available():
-        # Get the expected executable name based on the adapter
-        if cli_name == "claude":
-            executable_hint = "claude-code or claude"
-        elif cli_name == "antigravity":
-            executable_hint = "agy"
-        else:
-            executable_hint = cli_name
-
+        hint = adapter.install_hint
         raise CLINotFoundError(
             f"CLI executable not found for '{cli_agent_name}'. "
-            f"Please ensure '{executable_hint}' is installed and available in PATH. "
-            f"Run 'which {executable_hint.split()[0]}' to verify installation."
+            f"Please ensure '{hint}' is installed and available in PATH. "
+            f"Run 'which {hint.split()[0]}' to verify installation."
         )
-
     return adapter
 
 
 __all__ = [
+    "ADAPTERS",
     "AntigravityAdapter",
     "BaseAdapter",
+    "CLINotFoundError",
     "ClaudeAdapter",
     "CodexAdapter",
     "OpenCodeAdapter",
     "PiAdapter",
-    "VTCodeAdapter",
     "UnsupportedCLIError",
-    "CLINotFoundError",
+    "VTCodeAdapter",
     "get_adapter",
 ]

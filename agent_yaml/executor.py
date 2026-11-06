@@ -569,7 +569,7 @@ def execute_single_task(
             # Some CLIs (pi) hang on /dev/null stdin in print mode and need a clean EOF.
             stdin_kwargs = (
                 {"input": ""}
-                if getattr(adapter, "needs_empty_stdin", False)
+                if getattr(adapter, "needs_empty_stdin", False) is True
                 else {"stdin": subprocess.DEVNULL}
             )
             result = subprocess.run(

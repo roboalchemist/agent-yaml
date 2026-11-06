@@ -2,55 +2,92 @@
 OpenCode CLI adapter (OpenCode v2, non-interactive `opencode run`).
 
 Maps generic configurations to OpenCode-specific CLI arguments:
-- skip-confirmations: true → --auto (auto-approve permissions that are not explicitly denied)
-- model: "anthropic/claude-haiku-5-5" → --model anthropic/claude-haiku-5-5
-  (provider/model[#variant]; a few short aliases such as "haiku-5.5" are translated)
-- agent: "build" → --agent build
-- permissions: ["plan"] → --agent plan (only if `agent` is not set; first entry wins)
-- output-format: "json" → --format json; "default"/"text" add nothing
-- session-id: "ses_..." → --session ses_...
-- continue: true → --continue (session-id wins when both are set)
-- title: "..." → --title "..."
-- files: [path, ...] → --file path (repeated)
-- log-level: "debug" → --log-level debug
-- debug: true → --print-logs (server logs only while --standalone is active)
-- standalone: true (default) → --standalone
-- server: "http://host:port" → --server URL (replaces --standalone)
-- raw-args: [...] → appended after the translated flags, before the prompt
-- timeout → subprocess timeout (handled by the executor, NOT a CLI arg)
-- PROMPT: last argument, always preceded by "--"
+- skip-confirmations: true → --auto
+- model: provider/model[#variant] → --model (short aliases translated)
+- agent / permissions[0] → --agent
+- output-format: json → --format json; default/text add nothing
+- session-id → --session; continue → --continue; title → --title
+- files → --file (repeated); log-level → --log-level
+- debug → --print-logs (server logs while --standalone is active)
+- standalone (default true) → --standalone; server URL replaces it
+- raw-args → appended before the prompt
+- prompt last, after "--"
 
-Why --standalone by default: without it `opencode run` talks to the shared background
-service, whose environment, credentials, and model catalog are not the ones agent-yaml
-sets up, so workflow `environment:`/`env:` values never reach the agent's tools. With
---standalone a private server is started as a child process and inherits the subprocess
-env and working directory. It exits when `opencode run` exits, including on timeout kill.
+Ignored with a remediation hint: additional-dirs, mcp-servers, mcp-config-file (configure
+them in opencode.json). Ignored silently: keys another harness owns but OpenCode has no
+equivalent for (tools, thinking, sandbox, schemas, prompts, and so on).
 
-Why "--" before the prompt: `opencode run` parses a prompt that starts with "-" as an
-unknown flag, prints help, and exits non-zero (v2.0.25 behavior), which would fail the task
-with a confusing usage error.
-
-`thinking` is not mapped: OpenCode's `--thinking` is a display toggle for thinking blocks,
-while the generic key is a reasoning level (pi). It is ignored without a warning.
-
-Unsupported (warning logged, value ignored); configure these in opencode.json instead:
-- additional-dirs, mcp-servers, mcp-config-file
-
-CLI tool: opencode (requires v2.x; v1 has no --standalone/--auto)
-
-Reference: spec/ADAPTER_SPEC.md for the cross-adapter mapping tables.
+CLI tool: opencode (requires v2.x).
 """
 
 import logging
-import shutil
-
-from .base import BaseAdapter
 
 logger = logging.getLogger(__name__)
+
+from .base import (
+    BaseAdapter,
+    BOOL,
+    ENUM,
+    IGNORED,
+    IGNORED_SILENT,
+    LIST,
+    NUMBER,
+    STR,
+)
+
+_IGNORED = {
+    key: IGNORED_SILENT
+    for key in (
+        "provider",
+        "tools",
+        "exclude-tools",
+        "thinking",
+        "no-tools",
+        "session",
+        "no-extensions",
+        "web-search",
+        "security-level",
+        "max-tool-calls",
+        "quiet",
+        "effort",
+        "sandbox",
+        "json-schema",
+        "last-message-file",
+        "system-prompt",
+        "append-system-prompt",
+        "settings",
+        "disable-slash-commands",
+        "max-budget",
+        "fallback-model",
+        "project",
+        "log-file",
+        "color",
+        "images",
+        "enable",
+        "ignore-user-config",
+        "ignore-rules",
+        "events-file",
+        "max-concurrent-ops",
+        "api-rate-limit",
+        "config-overrides",
+        "session-dir",
+        "no-context-files",
+        "no-mcp",
+        "no-builtin-tools",
+        "skills",
+        "extensions",
+    )
+}
 
 
 class OpenCodeAdapter(BaseAdapter):
     """Adapter for the OpenCode v2 CLI (`opencode run`)."""
+
+    name = "opencode"
+    executables = ("opencode",)
+    install_hint = "opencode"
+    prompt_style = "separator"
+    prompt_separator = "--"
 
     MODEL_ALIASES = {
         "haiku-5.5": "anthropic/claude-haiku-5-5",
@@ -58,21 +95,42 @@ class OpenCodeAdapter(BaseAdapter):
         "opus-5.5": "anthropic/claude-opus-5-5",
     }
 
-    def __init__(self, tool_config=None):
-        """Initialize OpenCode adapter."""
-        super().__init__("opencode", tool_config)
+    option_spec = {
+        "model": STR,
+        "session-id": STR,
+        "continue": BOOL,
+        "title": STR,
+        "agent": STR,
+        "permissions": LIST,
+        "output-format": ENUM("text", "default", "json"),
+        "skip-confirmations": BOOL,
+        "debug": BOOL,
+        "raw-args": LIST,
+        "additional-dirs": IGNORED("configure it in opencode.json"),
+        "mcp-servers": IGNORED("configure it in opencode.json"),
+        "mcp-config-file": IGNORED("configure it in opencode.json"),
+        "server": STR,
+        "standalone": BOOL,
+        "log-level": ENUM("all", "trace", "debug", "info", "warn", "warning", "error", "fatal", "none"),
+        "files": LIST,
+        "timeout": NUMBER,
+        **_IGNORED,
+    }
+
+    live_exempt = {
+        "provider": "OpenCode has no provider flag; the provider is part of the model id",
+        "tools": "tool availability is configured by the selected agent, not a run flag",
+        "exclude-tools": "tool availability is configured by the selected agent, not a run flag",
+        "thinking": "OpenCode --thinking is a display toggle, not a reasoning level",
+        "sandbox": "OpenCode has no sandbox flag; worktree isolation is an agent setting",
+        "server": "requires a running OpenCode server on the requested port",
+        "standalone": "tested through the default command shape (no explicit case)",
+        "session-id": "requires an existing ses_... session; continue covers resume",
+        "raw-args": "verbatim passthrough; covered by the adapter unit tests",
+    }
 
     def build_command(self, task_config, prompt):
-        """
-        Build an `opencode run` command from task configuration.
-
-        Args:
-            task_config: Task configuration dict (merged cli-agent-config)
-            prompt: Interpolated prompt string
-
-        Returns:
-            list: Command as list of strings (argv format)
-        """
+        """Build an `opencode run` command from task configuration."""
         cmd = ["opencode", "run"]
 
         server = task_config.get("server")
@@ -88,9 +146,9 @@ class OpenCodeAdapter(BaseAdapter):
         if model:
             model = self.MODEL_ALIASES.get(model, model)
             if "/" not in model:
-                logger.warning(
-                    f"OpenCode expects models as provider/model (e.g. anthropic/claude-haiku-5-5), "
-                    f"got '{model}'"
+                self.logger.warning(
+                    "OpenCode expects models as provider/model "
+                    f"(e.g. anthropic/claude-haiku-5-5), got '{model}'"
                 )
             cmd.extend(["--model", model])
 
@@ -104,8 +162,6 @@ class OpenCodeAdapter(BaseAdapter):
         output_format = task_config.get("output-format")
         if output_format == "json":
             cmd.extend(["--format", "json"])
-        elif output_format and output_format not in ("text", "default"):
-            logger.warning(f"OpenCode does not support output-format '{output_format}'")
 
         session_id = task_config.get("session-id")
         if session_id:
@@ -127,25 +183,10 @@ class OpenCodeAdapter(BaseAdapter):
         if task_config.get("debug"):
             cmd.append("--print-logs")
 
-        for unsupported in ("additional-dirs", "mcp-servers", "mcp-config-file"):
-            if task_config.get(unsupported):
-                logger.warning(
-                    f"OpenCode adapter ignores '{unsupported}'; configure it in opencode.json"
-                )
+        self.warn_ignored(task_config)
 
         raw_args = task_config.get("raw-args", [])
         if raw_args:
             cmd.extend(raw_args)
 
-        cmd.extend(["--", prompt])
-
-        return cmd
-
-    def check_available(self):
-        """
-        Check if the OpenCode CLI is available in PATH.
-
-        Returns:
-            bool: True if the `opencode` executable is found
-        """
-        return shutil.which("opencode") is not None
+        return self.append_prompt(cmd, prompt)

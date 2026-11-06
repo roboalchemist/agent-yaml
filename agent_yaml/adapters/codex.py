@@ -3,44 +3,82 @@ Codex CLI adapter (`codex exec`).
 
 Maps generic configurations to Codex-specific CLI arguments:
 - skip-confirmations: true → --dangerously-bypass-approvals-and-sandbox
-- additional-dirs: [DIR, ...] → --add-dir DIR (repeated; `-C` would replace the root)
-- model: pass through as-is (no translation)
-- output-format: "json" → --json ("text" adds nothing)
-- permissions: [mode, ...] → first entry only:
-    plan / read-only            → --sandbox read-only
-    workspace-write             → --sandbox workspace-write
-    danger-full-access          → --sandbox danger-full-access
-    untrusted|on-failure|on-request|never → -c approval_policy=<mode>
-- sandbox: "read-only|workspace-write|danger-full-access" → --sandbox
-- provider: "ollama"|"lmstudio" → --oss --local-provider <name>
-- session: false → --ephemeral
-- effort: "high" → -c model_reasoning_effort=high
-- session-id: "id" → `codex exec resume <id>`
-- continue: true → `codex exec resume --last` (session-id wins)
-- json-schema: path → --output-schema PATH
-- last-message-file: path → -o PATH
-- images: [path, ...] → -i PATH (repeated)
-- enable: [feature, ...] → --enable FEATURE (repeated)
+- additional-dirs: [DIR, ...] → --add-dir DIR (repeated)
+- model: pass through as-is
+- output-format: json → --json; text adds nothing
+- permissions[0]: plan/read-only/workspace-write/danger-full-access → --sandbox;
+  untrusted|on-failure|on-request|never → -c approval_policy=…
+- sandbox: read-only|workspace-write|danger-full-access → --sandbox
+- provider: ollama|lmstudio → --oss --local-provider
+- session: false → --ephemeral; session-id/continue → `codex exec resume`
+- effort → -c model_reasoning_effort=…
+- web-search → --enable web_search
+- json-schema → --output-schema; last-message-file → -o; images → -i
+- enable → --enable (repeated); config-overrides → -c (repeated)
 - ignore-user-config / ignore-rules → matching flags
-- web-search: true → --enable web_search
-- config-overrides: ["k=v", ...] → -c k=v (repeated)
-- raw-args: [...] → appended after the translated flags
-- PROMPT: DIRECT argument at the end (NO flag)
+- raw-args → appended before the prompt
+- prompt: positional, last argument
 
-`codex exec resume` has no `--sandbox` or `--add-dir`; when resuming, those options are
-warned and dropped. `--oss` is exec-only for the same reason.
-
-`debug` has no headless equivalent in codex 0.153.x, so it warns and is dropped.
+`codex exec resume` has no --sandbox or --add-dir; those are dropped with a warning when
+resuming. `debug` has no headless equivalent and is ignored with a hint.
 
 Reference: spec/ADAPTER_SPEC.md for the complete Codex mappings.
 """
 
 import logging
-import shutil
-
-from .base import BaseAdapter
 
 logger = logging.getLogger(__name__)
+
+from .base import (
+    BaseAdapter,
+    BOOL,
+    ENUM,
+    IGNORED,
+    IGNORED_SILENT,
+    LIST,
+    NUMBER,
+    STR,
+)
+
+_IGNORED = {
+    key: IGNORED_SILENT
+    for key in (
+        "agent",
+        "title",
+        "mcp-servers",
+        "mcp-config-file",
+        "tools",
+        "exclude-tools",
+        "thinking",
+        "no-tools",
+        "no-extensions",
+        "server",
+        "standalone",
+        "security-level",
+        "max-tool-calls",
+        "quiet",
+        "system-prompt",
+        "append-system-prompt",
+        "settings",
+        "disable-slash-commands",
+        "max-budget",
+        "fallback-model",
+        "project",
+        "log-file",
+        "log-level",
+        "color",
+        "files",
+        "events-file",
+        "max-concurrent-ops",
+        "api-rate-limit",
+        "session-dir",
+        "no-context-files",
+        "no-mcp",
+        "no-builtin-tools",
+        "skills",
+        "extensions",
+    )
+}
 
 SANDBOX_MODES = ("read-only", "workspace-write", "danger-full-access")
 APPROVAL_MODES = ("untrusted", "on-failure", "on-request", "never")
@@ -50,25 +88,52 @@ OSS_PROVIDERS = ("ollama", "lmstudio")
 class CodexAdapter(BaseAdapter):
     """Adapter for Codex CLI."""
 
-    def __init__(self, tool_config=None):
-        """Initialize Codex adapter."""
-        super().__init__("codex", tool_config)
+    name = "codex"
+    executables = ("codex",)
+    install_hint = "codex"
+    prompt_style = "positional"
+
+    option_spec = {
+        "model": STR,
+        "provider": ENUM(*OSS_PROVIDERS),
+        "session-id": STR,
+        "continue": BOOL,
+        "permissions": LIST,
+        "output-format": ENUM("text", "json"),
+        "skip-confirmations": BOOL,
+        "debug": IGNORED("codex exec has no debug flag"),
+        "raw-args": LIST,
+        "additional-dirs": LIST,
+        "sandbox": ENUM(*SANDBOX_MODES),
+        "session": BOOL,
+        "effort": STR,
+        "web-search": BOOL,
+        "json-schema": STR,
+        "last-message-file": STR,
+        "images": LIST,
+        "enable": LIST,
+        "ignore-user-config": BOOL,
+        "ignore-rules": BOOL,
+        "config-overrides": LIST,
+        "timeout": NUMBER,
+        **_IGNORED,
+    }
+
+    live_exempt = {
+        "provider": "needs a local ollama or lmstudio endpoint",
+        "images": "vision input needs a model that accepts images",
+        "ignore-user-config": "changes what Codex loads from the operator's home directory",
+        "ignore-rules": "changes what Codex loads from the operator's home directory",
+        "config-overrides": "arbitrary config injection; parse-verified only",
+        "raw-args": "verbatim passthrough; covered by the adapter unit tests",
+        "session-id": "resume needs a real session id from a prior run; continue covers the resume path",
+    }
 
     def build_command(self, task_config, prompt):
-        """
-        Build a Codex CLI command from task configuration.
-
-        Args:
-            task_config: Task configuration dict
-            prompt: Interpolated prompt string
-
-        Returns:
-            list: Command as list of strings (argv format)
-        """
+        """Build a Codex CLI command from task configuration."""
         session_id = task_config.get("session-id")
         continue_session = bool(task_config.get("continue"))
 
-        # `codex exec resume` continues an existing session; otherwise plain exec.
         if session_id:
             cmd = ["codex", "exec", "resume", session_id]
         elif continue_session:
@@ -77,17 +142,15 @@ class CodexAdapter(BaseAdapter):
             cmd = ["codex", "exec"]
         resuming = bool(session_id or continue_session)
 
-        # Allow running in a directory that is not a git repo.
         cmd.append("--skip-git-repo-check")
 
         if task_config.get("skip-confirmations"):
             cmd.append("--dangerously-bypass-approvals-and-sandbox")
 
-        # additional-dirs are extra writable roots; -C replaces the working root.
         additional_dirs = task_config.get("additional-dirs", [])
         if additional_dirs:
             if resuming:
-                logger.warning(
+                self.logger.warning(
                     "codex exec resume has no --add-dir; ignoring additional-dirs on resume"
                 )
             else:
@@ -100,69 +163,43 @@ class CodexAdapter(BaseAdapter):
 
         provider = task_config.get("provider")
         if provider:
-            if provider.lower() in OSS_PROVIDERS:
-                if resuming:
-                    logger.warning(
-                        "codex exec resume has no --oss; ignoring provider on resume"
-                    )
-                else:
-                    cmd.extend(["--oss", "--local-provider", provider.lower()])
+            if resuming:
+                self.logger.warning("codex exec resume has no --oss; ignoring provider on resume")
             else:
-                logger.warning(
-                    "codex only supports provider 'ollama' or 'lmstudio' (via --oss); "
-                    f"ignoring provider '{provider}'"
-                )
+                cmd.extend(["--oss", "--local-provider", provider.lower()])
 
         if "session" in task_config and not task_config["session"]:
             cmd.append("--ephemeral")
 
-        if task_config.get("debug"):
-            logger.warning("codex exec has no debug flag; ignoring debug")
-
         output_format = task_config.get("output-format")
         if output_format == "json":
             cmd.append("--json")
-        elif output_format and output_format != "text":
-            logger.warning(f"codex does not support output-format '{output_format}'")
 
         sandbox = task_config.get("sandbox")
         if sandbox:
             if resuming:
-                logger.warning(
-                    "codex exec resume has no --sandbox; ignoring sandbox on resume"
-                )
-            elif sandbox in SANDBOX_MODES:
-                cmd.extend(["--sandbox", sandbox])
+                self.logger.warning("codex exec resume has no --sandbox; ignoring sandbox on resume")
             else:
-                logger.warning(
-                    f"codex sandbox must be one of {list(SANDBOX_MODES)}, got '{sandbox}'"
-                )
+                cmd.extend(["--sandbox", sandbox])
 
         permissions = task_config.get("permissions", [])
         if permissions:
             if len(permissions) > 1:
-                logger.warning(
+                self.logger.warning(
                     f"codex uses only the first permission mode; ignoring {permissions[1:]}"
                 )
             mode = permissions[0]
-            if mode in ("plan", "read-only"):
+            if mode in ("plan",) or mode in SANDBOX_MODES:
                 if resuming:
-                    logger.warning(
-                        "codex exec resume has no --sandbox; ignoring plan/read-only"
-                    )
-                else:
-                    cmd.extend(["--sandbox", "read-only"])
-            elif mode in SANDBOX_MODES:
-                if resuming:
-                    logger.warning(
+                    self.logger.warning(
                         "codex exec resume has no --sandbox; ignoring sandbox mode"
                     )
                 else:
-                    cmd.extend(["--sandbox", mode])
+                    cmd.extend(["--sandbox", "read-only" if mode == "plan" else mode])
             elif mode in APPROVAL_MODES:
                 cmd.extend(["-c", f"approval_policy={mode}"])
             else:
-                logger.warning(
+                self.logger.warning(
                     "codex permissions must be one of "
                     f"{list(APPROVAL_MODES + SANDBOX_MODES)} or 'plan', got '{mode}'"
                 )
@@ -196,20 +233,10 @@ class CodexAdapter(BaseAdapter):
         for override in task_config.get("config-overrides", []):
             cmd.extend(["-c", override])
 
+        self.warn_ignored(task_config)
+
         raw_args = task_config.get("raw-args", [])
         if raw_args:
             cmd.extend(raw_args)
 
-        # Prompt goes at the end as a direct argument (no flag).
-        cmd.append(prompt)
-
-        return cmd
-
-    def check_available(self):
-        """
-        Check if Codex CLI is available in PATH.
-
-        Returns:
-            bool: True if the tool is available
-        """
-        return shutil.which("codex") is not None
+        return self.append_prompt(cmd, prompt)
