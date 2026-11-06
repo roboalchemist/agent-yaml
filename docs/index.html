@@ -580,8 +580,10 @@ task:
           </tbody>
         </table>
       </div>
-      <p>Only <code>pi</code>, <code>vtcode</code>, and <code>antigravity</code> reject unknown options at validate
-         time; <code>opencode</code>, <code>claude</code>, and <code>codex</code> silently ignore keys they do not read.
+      <p>Every harness validates its option bag strictly: an unknown key fails <code>validate</code> with the
+         adapter's full allowed list. Keys another harness owns appear as <b>ignored</b>, so they validate but
+         do nothing, and <code>raw-args</code> is the escape hatch for an unmodeled flag. All six harnesses
+         have a live matrix on one shared runner.
          <a href="https://github.com/roboalchemist/agent-yaml/blob/main/docs/CONFIG_SURFACES.md">Full matrix,
          per-harness notes, and the deliberately unexposed list</a>.</p>
     </section>
