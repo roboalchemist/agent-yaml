@@ -7,11 +7,13 @@ Maps generic configurations to OpenCode-specific CLI arguments:
   (provider/model[#variant]; a few short aliases such as "haiku-5.5" are translated)
 - agent: "build" → --agent build
 - permissions: ["plan"] → --agent plan (only if `agent` is not set; first entry wins)
-- output-format: "json" → --format json ("text" is the default and adds nothing;
-  Claude's "stream-json" has no OpenCode equivalent and is ignored with a warning)
+- output-format: "json" → --format json; "default"/"text" add nothing
 - session-id: "ses_..." → --session ses_...
+- continue: true → --continue (session-id wins when both are set)
 - title: "..." → --title "..."
-- debug: true → --print-logs
+- files: [path, ...] → --file path (repeated)
+- log-level: "debug" → --log-level debug
+- debug: true → --print-logs (server logs only while --standalone is active)
 - standalone: true (default) → --standalone
 - server: "http://host:port" → --server URL (replaces --standalone)
 - raw-args: [...] → appended after the translated flags, before the prompt
@@ -24,8 +26,12 @@ sets up, so workflow `environment:`/`env:` values never reach the agent's tools.
 --standalone a private server is started as a child process and inherits the subprocess
 env and working directory. It exits when `opencode run` exits, including on timeout kill.
 
-Why "--" before the prompt: OpenCode parses a prompt that starts with "-" as flags,
-prints help, and exits 0, which the executor would read as success.
+Why "--" before the prompt: `opencode run` parses a prompt that starts with "-" as an
+unknown flag, prints help, and exits non-zero (v2.0.25 behavior), which would fail the task
+with a confusing usage error.
+
+`thinking` is not mapped: OpenCode's `--thinking` is a display toggle for thinking blocks,
+while the generic key is a reasoning level (pi). It is ignored without a warning.
 
 Unsupported (warning logged, value ignored); configure these in opencode.json instead:
 - additional-dirs, mcp-servers, mcp-config-file
@@ -69,18 +75,15 @@ class OpenCodeAdapter(BaseAdapter):
         """
         cmd = ["opencode", "run"]
 
-        # 1. server: URL → --server URL, otherwise standalone private server (default)
         server = task_config.get("server")
         if server:
             cmd.extend(["--server", server])
         elif task_config.get("standalone", True):
             cmd.append("--standalone")
 
-        # 2. skip-confirmations: true → --auto
         if task_config.get("skip-confirmations"):
             cmd.append("--auto")
 
-        # 3. model: provider/model[#variant] (short aliases translated)
         model = task_config.get("model")
         if model:
             model = self.MODEL_ALIASES.get(model, model)
@@ -91,7 +94,6 @@ class OpenCodeAdapter(BaseAdapter):
                 )
             cmd.extend(["--model", model])
 
-        # 4. agent: "build" → --agent build; permissions: ["plan"] → --agent plan
         agent = task_config.get("agent")
         permissions = task_config.get("permissions", [])
         if not agent and permissions:
@@ -99,40 +101,42 @@ class OpenCodeAdapter(BaseAdapter):
         if agent:
             cmd.extend(["--agent", agent])
 
-        # 5. output-format: "json" → --format json (text is the default)
         output_format = task_config.get("output-format")
         if output_format == "json":
             cmd.extend(["--format", "json"])
-        elif output_format and output_format != "text":
+        elif output_format and output_format not in ("text", "default"):
             logger.warning(f"OpenCode does not support output-format '{output_format}'")
 
-        # 6. session-id → --session
         session_id = task_config.get("session-id")
         if session_id:
             cmd.extend(["--session", session_id])
+        elif task_config.get("continue"):
+            cmd.append("--continue")
 
-        # 7. title → --title
         title = task_config.get("title")
         if title:
             cmd.extend(["--title", title])
 
-        # 8. debug: true → --print-logs
+        for path in task_config.get("files", []):
+            cmd.extend(["--file", path])
+
+        log_level = task_config.get("log-level")
+        if log_level:
+            cmd.extend(["--log-level", log_level])
+
         if task_config.get("debug"):
             cmd.append("--print-logs")
 
-        # 9. Not supported by `opencode run` (configure in opencode.json instead)
         for unsupported in ("additional-dirs", "mcp-servers", "mcp-config-file"):
             if task_config.get(unsupported):
                 logger.warning(
                     f"OpenCode adapter ignores '{unsupported}'; configure it in opencode.json"
                 )
 
-        # 10. raw-args: passthrough (no translation)
         raw_args = task_config.get("raw-args", [])
         if raw_args:
             cmd.extend(raw_args)
 
-        # 11. Prompt last, after "--" so a leading "-" is never parsed as a flag
         cmd.extend(["--", prompt])
 
         return cmd

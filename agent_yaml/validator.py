@@ -40,10 +40,10 @@ class SchemaValidator:
     # producing a command the CLI rejects at run time.
     _agent = "claude"
     PI_THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
-    PI_OUTPUT_FORMATS = ["text", "json", "rpc"]
+    PI_OUTPUT_FORMATS = ["text", "json"]
     PI_OPTION_SPEC = {
         "model": "string",
-        "provider": "string",
+        "provider": "string (requires model)",
         "thinking": "string",
         "title": "string",
         "session-id": "string",
@@ -54,8 +54,16 @@ class SchemaValidator:
         "no-tools": "boolean",
         "continue": "boolean",
         "session": "boolean",
+        "session-dir": "string",
+        "system-prompt": "string",
+        "append-system-prompt": "string or list of strings",
         "debug": "boolean",
         "no-extensions": "boolean",
+        "extensions": "list of strings",
+        "skills": "list of strings",
+        "no-builtin-tools": "boolean",
+        "no-context-files": "boolean",
+        "no-mcp": "boolean",
         "timeout": "positive number",
         "raw-args": "list of strings",
         "additional-dirs": "list (ignored by pi)",
@@ -70,6 +78,15 @@ class SchemaValidator:
         "output-format": "string",
         "security-level": "string",
         "max-tool-calls": "positive integer",
+        "max-concurrent-ops": "positive integer",
+        "api-rate-limit": "positive integer",
+        "tools": "string or list of strings",
+        "exclude-tools": "string or list of strings",
+        "config-overrides": "list of strings",
+        "log-level": "string",
+        "color": "string",
+        "events-file": "string",
+        "last-message-file": "string",
         "skip-confirmations": "boolean",
         "continue": "boolean",
         "debug": "boolean",
@@ -85,11 +102,17 @@ class SchemaValidator:
         "model": "string",
         "effort": "string",
         "agent": "string",
+        "permissions": "list of strings",
         "session-id": "string",
         "output-format": "string",
         "skip-confirmations": "boolean",
         "continue": "boolean",
         "sandbox": "boolean",
+        "json-schema": "string",
+        "settings": "string",
+        "project": "string",
+        "log-file": "string",
+        "disable-slash-commands": "boolean",
         "timeout": "positive number",
         "raw-args": "list of strings",
         "additional-dirs": "list of directories",
@@ -104,21 +127,35 @@ class SchemaValidator:
     }
     AGENT_STRING_OPTIONS = {
         "pi": ["model", "provider", "thinking", "title", "session-id",
-               "output-format", "mcp-config-file"],
+               "output-format", "session-dir", "system-prompt", "mcp-config-file"],
         "vtcode": ["model", "provider", "session-id", "output-format",
-                   "security-level", "mcp-config-file"],
-        "antigravity": ["model", "effort", "agent", "session-id",
-                        "output-format", "mcp-config-file"],
+                   "security-level", "log-level", "color", "events-file",
+                   "last-message-file", "mcp-config-file"],
+        "antigravity": ["model", "effort", "agent", "session-id", "output-format",
+                        "json-schema", "settings", "project", "log-file",
+                        "mcp-config-file"],
     }
     AGENT_BOOL_OPTIONS = {
         "pi": ["skip-confirmations", "no-tools", "continue", "session",
-               "debug", "no-extensions"],
+               "debug", "no-extensions", "no-builtin-tools", "no-context-files",
+               "no-mcp"],
         "vtcode": ["skip-confirmations", "continue", "debug", "quiet"],
-        "antigravity": ["skip-confirmations", "continue", "sandbox"],
+        "antigravity": ["skip-confirmations", "continue", "sandbox",
+                        "disable-slash-commands"],
     }
     AGENT_STRING_OR_LIST_OPTIONS = {
-        "pi": ["tools", "exclude-tools"],
-        "vtcode": [],
+        "pi": ["tools", "exclude-tools", "append-system-prompt"],
+        "vtcode": ["tools", "exclude-tools"],
+        "antigravity": [],
+    }
+    AGENT_LIST_OF_STRINGS_OPTIONS = {
+        "pi": ["extensions", "skills"],
+        "vtcode": ["config-overrides"],
+        "antigravity": ["permissions"],
+    }
+    AGENT_POSITIVE_INT_OPTIONS = {
+        "pi": [],
+        "vtcode": ["max-tool-calls", "max-concurrent-ops", "api-rate-limit"],
         "antigravity": [],
     }
     AGENT_ENUM_OPTIONS = {
@@ -126,6 +163,8 @@ class SchemaValidator:
         "vtcode": {
             "output-format": ["text", "json"],
             "security-level": ["strict", "moderate", "permissive"],
+            "log-level": ["error", "warn", "info", "debug", "trace"],
+            "color": ["auto", "always", "never"],
         },
         "antigravity": {
             "output-format": ["text", "json", "stream-json"],
@@ -163,13 +202,16 @@ class SchemaValidator:
             if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
                 fail("{} option 'timeout' must be a positive number, got {!r}".format(agent, value))
 
-        if "max-tool-calls" in config:
-            value = config["max-tool-calls"]
-            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-                fail("{} option 'max-tool-calls' must be a positive integer, got {!r}".format(
-                    agent, value))
+        for key in self.AGENT_POSITIVE_INT_OPTIONS[agent]:
+            if key in config:
+                value = config[key]
+                if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                    fail("{} option '{}' must be a positive integer, got {!r}".format(
+                        agent, key, value))
 
-        for key in ("raw-args", "additional-dirs", "mcp-servers"):
+        list_options = ["raw-args", "additional-dirs", "mcp-servers"]
+        list_options.extend(self.AGENT_LIST_OF_STRINGS_OPTIONS[agent])
+        for key in list_options:
             if key in config:
                 value = config[key]
                 if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
@@ -197,6 +239,9 @@ class SchemaValidator:
 
         if "session-id" in config and not config["session-id"].strip():
             fail("{} option 'session-id' must not be empty".format(agent))
+
+        if agent == "pi" and "provider" in config and "model" not in config:
+            fail("pi option 'provider' requires 'model' (the CLI rejects --provider alone)")
 
     def _validate_pi_config(self, config, where="cli-agent-config"):
         """Backward-compatible wrapper for the pi option validator."""

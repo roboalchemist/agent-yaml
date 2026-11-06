@@ -98,9 +98,10 @@ report `status: success`, `partial`, or `failed` with `completed` and `failed` i
   `checkpoint-file`.
 - `when` compares interpolated strings for `==` and `!=` unless both sides are native booleans or
   numbers.
-- The Codex adapter emits `--full-auto`, `-a`, and `--search`, which recent `codex-cli` releases
-  reject. Use `raw-args` with newer versions.
-- The Claude adapter emits `--allowed-mcp-server-names`, which current `claude` builds reject.
+- Adapter flags track the CLI versions listed in `docs/CONFIG_SURFACES.md`. Codex 0.153.4 removed
+  `--full-auto`, `-a`, and `--search`; the adapter now emits `--dangerously-bypass-approvals-and-sandbox`,
+  `-c approval_policy=…`, and `--enable web_search`.
+- Claude 2.x removed `--allowed-mcp-server-names`; `mcp-servers` now warns and is ignored.
 - MCP detection in `ensure.mcps` is a warning-only stub.
 - Tasks named exactly `loop` or `prompt` collide with task meta fields.
 - `execute_task_tree` labels top-level tasks with the literal name `task` in debug output.

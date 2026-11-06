@@ -3,22 +3,31 @@ Antigravity CLI adapter (Google Antigravity `agy`).
 
 Maps generic configurations onto agy's flags:
 - skip-confirmations: true → --dangerously-skip-permissions
-- model: "gemini-4-argon" → --model ...
+- model: "gemini-3.8-flash-high" → --model ...
 - effort: low|medium|high|xhigh|max → --effort ...
 - agent: "reviewer" → --agent ...
+- permissions: ["plan"] → --mode plan (accept-edits|auto|plan; first entry wins)
 - output-format: "json"|"stream-json" → --output-format ... ("text" is the default)
 - session-id: "abc" → --conversation abc (resume by conversation id)
-- continue: true → --continue (most recent conversation)
+- continue: true → --continue (most recent conversation; session-id wins)
 - sandbox: true → --sandbox (terminal sandbox restrictions)
 - additional-dirs: [DIR, ...] → --add-dir DIR (repeated)
 - timeout: 600 → --print-timeout 600s (the executor still enforces its own limit)
+- json-schema: <json|path> → --json-schema ...
+- settings: <json|path> → --settings ... (session-only, never persisted)
+- project: "proj" → --project proj
+- log-file: path → --log-file path
+- disable-slash-commands: true → --disable-slash-commands
 - raw-args: [...] → appended after translated flags, before the prompt
 
-Unsupported (warning logged, value ignored): mcp-servers, mcp-config-file.
-Antigravity reads `~/.gemini/antigravity-cli/settings.json` for permissions and MCP.
+`permissions` aliases: plan-only → plan, auto-edit → accept-edits, and
+yolo/never/bypass → --dangerously-skip-permissions.
 
-Non-interactive mode is `agy -p "<prompt>"`, which prints the response and exits. The prompt is
-passed as the value of `-p`, so it is never mistaken for a flag.
+Unsupported (warning logged, value ignored): mcp-servers, mcp-config-file.
+MCP servers are managed with `agy mcp add` or `~/.gemini/antigravity-cli/settings.json`.
+
+Non-interactive mode is `agy -p "<prompt>"`, which prints the response and exits. `-p` is
+`--print`'s alias and takes the next argument as the prompt, so the prompt is its value.
 
 CLI tool: agy (Antigravity CLI, https://antigravity.google/docs/cli)
 
@@ -31,6 +40,12 @@ import shutil
 from .base import BaseAdapter
 
 logger = logging.getLogger(__name__)
+
+MODE_ALIASES = {
+    "plan-only": "plan",
+    "auto-edit": "accept-edits",
+}
+BYPASS_MODES = ("yolo", "never", "bypass", "bypass-permissions")
 
 
 class AntigravityAdapter(BaseAdapter):
@@ -53,13 +68,9 @@ class AntigravityAdapter(BaseAdapter):
         """
         cmd = ["agy"]
 
-        # 1. skip-confirmations → --dangerously-skip-permissions.
-        # `--mode auto` is unavailable on API-key accounts and auto-denies the
-        # write_file permission in headless mode, so it cannot run agent tasks.
         if task_config.get("skip-confirmations"):
             cmd.append("--dangerously-skip-permissions")
 
-        # 2. model / reasoning effort / agent
         model = task_config.get("model")
         if model:
             cmd.extend(["--model", model])
@@ -72,52 +83,68 @@ class AntigravityAdapter(BaseAdapter):
         if agent:
             cmd.extend(["--agent", agent])
 
-        # 3. output format
+        permissions = task_config.get("permissions", [])
+        if permissions:
+            if len(permissions) > 1:
+                logger.warning(
+                    f"antigravity uses only the first permission mode; ignoring {permissions[1:]}"
+                )
+            mode = permissions[0]
+            if mode in BYPASS_MODES:
+                cmd.append("--dangerously-skip-permissions")
+            else:
+                cmd.extend(["--mode", MODE_ALIASES.get(mode, mode)])
+
         output_format = task_config.get("output-format")
         if output_format:
             cmd.extend(["--output-format", output_format])
 
-        # 4. session handling
         session_id = task_config.get("session-id")
         if session_id:
+            if task_config.get("continue"):
+                logger.warning(
+                    "antigravity session-id and continue are mutually exclusive; "
+                    "resuming the session-id"
+                )
             cmd.extend(["--conversation", session_id])
         elif task_config.get("continue"):
             cmd.append("--continue")
 
-        # 5. sandbox
         if task_config.get("sandbox"):
             cmd.append("--sandbox")
 
-        # 6. additional directories (repeatable flag)
         for directory in task_config.get("additional-dirs", []):
             cmd.extend(["--add-dir", directory])
 
-        # 7. print-mode deadline, in seconds
         timeout = task_config.get("timeout")
         if timeout is not None:
-            cmd.extend(["--print-timeout", f"{int(timeout)}s"])
+            cmd.extend(["--print-timeout", f"{max(1, int(timeout))}s"])
 
-        # 8. Not supported by the agy CLI
+        for key, flag in (
+            ("json-schema", "--json-schema"),
+            ("settings", "--settings"),
+            ("project", "--project"),
+            ("log-file", "--log-file"),
+        ):
+            value = task_config.get(key)
+            if value:
+                cmd.extend([flag, str(value)])
+
+        if task_config.get("disable-slash-commands"):
+            cmd.append("--disable-slash-commands")
+
         for unsupported in ("mcp-servers", "mcp-config-file"):
             if task_config.get(unsupported):
                 logger.warning(
-                    f"antigravity adapter ignores '{unsupported}'; configure it in "
-                    "~/.gemini/antigravity-cli/settings.json"
+                    f"antigravity adapter ignores '{unsupported}'; add servers with "
+                    "`agy mcp add` or in ~/.gemini/antigravity-cli/settings.json"
                 )
 
-        # 9. raw-args: passthrough
         raw_args = task_config.get("raw-args", [])
         if raw_args:
             cmd.extend(raw_args)
 
-        # 10. -p is a boolean flag and the prompt is positional. A leading dash
-        # would be parsed as a flag, so it gets a single leading space.
-        if prompt.startswith("-"):
-            logger.warning(
-                "antigravity adapter: prompt starts with '-'; prefixing a space so it "
-                "is not parsed as a flag"
-            )
-            prompt = " " + prompt
+        # -p/--print takes the prompt as its value.
         cmd.extend(["-p", prompt])
 
         return cmd

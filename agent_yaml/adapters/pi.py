@@ -3,19 +3,26 @@ pi CLI adapter (pi coding agent, non-interactive `pi -p`).
 
 Maps generic configurations onto pi's flags:
 - skip-confirmations: true → --approve (trust project-local files for the run)
-- provider: "zai" → --provider zai
+  false (explicit) → --no-approve
+- provider: "zai" → --provider zai (requires model)
 - model: "zai/glm-5.1" or "zai/glm-5.1:high" → --model ... (passed through)
 - thinking: "high" → --thinking high
 - tools: ["read", "bash"] → --tools read,bash
 - no-tools: true → --no-tools
 - exclude-tools: ["write"] → --exclude-tools write
-- output-format: "json" → --mode json ("text" is the default, "rpc" is passed through)
+- output-format: "json" → --mode json ("text" is the default)
 - session-id: "abc123" → --session-id abc123 (create or reuse)
 - continue: true → --continue (session-id wins when both are set)
 - session: true → keep session persistence (the default here is --no-session)
+- session-dir: "./sessions" → --session-dir ./sessions
 - title: "Nightly docs" → --name "Nightly docs"
-- debug: true → --verbose
+- debug: true → --verbose (accepted; pi only uses it in the interactive TUI)
 - no-extensions: true → --no-extensions
+- extensions: [name, ...] → -e name (repeated)
+- skills: [path, ...] → --skill path (repeated)
+- no-builtin-tools / no-context-files / no-mcp → matching flags
+- system-prompt: "..." → --system-prompt ...
+- append-system-prompt: [...] → --append-system-prompt ... (repeated)
 - raw-args: [...] → appended after the translated flags, before the prompt
 - timeout → subprocess timeout (handled by the executor, NOT a CLI arg)
 
@@ -34,6 +41,9 @@ string and pi sees a clean EOF.
 
 Why `--` before the prompt: pi parses a leading "-" as a flag.
 
+`output-format: rpc` is not supported: RPC is a long-lived NDJSON stdin protocol, and a one-shot
+print run with closed stdin exits without inference. Use `text` or `json`.
+
 CLI tool: pi (https://github.com/earendil-works/pi)
 
 Reference: spec/ADAPTER_SPEC.md for the cross-adapter mapping tables.
@@ -45,6 +55,12 @@ import shutil
 from .base import BaseAdapter
 
 logger = logging.getLogger(__name__)
+
+
+def _comma_join(value):
+    if isinstance(value, (list, tuple)):
+        return ",".join(str(item) for item in value)
+    return value
 
 
 class PiAdapter(BaseAdapter):
@@ -70,75 +86,85 @@ class PiAdapter(BaseAdapter):
         """
         cmd = ["pi", "-p"]
 
-        # 1. skip-confirmations: true → --approve
         if task_config.get("skip-confirmations"):
             cmd.append("--approve")
+        elif "skip-confirmations" in task_config:
+            cmd.append("--no-approve")
 
-        # 2. provider → --provider
         provider = task_config.get("provider")
         if provider:
             cmd.extend(["--provider", provider])
 
-        # 3. model: provider/id with an optional :thinking suffix, passed through
         model = task_config.get("model")
         if model:
             cmd.extend(["--model", model])
 
-        # 4. thinking level
         thinking = task_config.get("thinking")
         if thinking:
             cmd.extend(["--thinking", thinking])
 
-        # 5. tools: list or comma string → --tools
         tools = task_config.get("tools")
         if tools:
-            if isinstance(tools, (list, tuple)):
-                tools = ",".join(str(tool) for tool in tools)
-            cmd.extend(["--tools", tools])
+            cmd.extend(["--tools", _comma_join(tools)])
 
-        # 6. no-tools: true → --no-tools
         if task_config.get("no-tools"):
             cmd.append("--no-tools")
 
-        # 7. exclude-tools: list or comma string → --exclude-tools
         exclude_tools = task_config.get("exclude-tools")
         if exclude_tools:
-            if isinstance(exclude_tools, (list, tuple)):
-                exclude_tools = ",".join(str(tool) for tool in exclude_tools)
-            cmd.extend(["--exclude-tools", exclude_tools])
+            cmd.extend(["--exclude-tools", _comma_join(exclude_tools)])
 
-        # 8. output-format: json/rpc → --mode; text is the default
         output_format = task_config.get("output-format")
-        if output_format in ("json", "rpc"):
-            cmd.extend(["--mode", output_format])
+        if output_format == "json":
+            cmd.extend(["--mode", "json"])
         elif output_format and output_format != "text":
             logger.warning(f"pi does not support output-format '{output_format}'")
 
-        # 9. session handling: session-id, else continue, else ephemeral by default
         session_id = task_config.get("session-id")
         if session_id:
-            # --session-id creates the session when it does not exist, unlike --session,
-            # which fails with "No session found matching".
             cmd.extend(["--session-id", session_id])
         elif task_config.get("continue"):
             cmd.append("--continue")
         elif not task_config.get("session"):
             cmd.append("--no-session")
 
-        # 10. title → --name
+        session_dir = task_config.get("session-dir")
+        if session_dir:
+            cmd.extend(["--session-dir", session_dir])
+
         title = task_config.get("title")
         if title:
             cmd.extend(["--name", title])
 
-        # 11. debug: true → --verbose
         if task_config.get("debug"):
             cmd.append("--verbose")
 
-        # 12. no-extensions: true → --no-extensions (hermetic runs)
         if task_config.get("no-extensions"):
             cmd.append("--no-extensions")
+        for extension in task_config.get("extensions", []):
+            cmd.extend(["-e", extension])
 
-        # 13. Not supported by pi's CLI
+        for skill in task_config.get("skills", []):
+            cmd.extend(["--skill", skill])
+
+        if task_config.get("no-builtin-tools"):
+            cmd.append("--no-builtin-tools")
+        if task_config.get("no-context-files"):
+            cmd.append("--no-context-files")
+        if task_config.get("no-mcp"):
+            cmd.append("--no-mcp")
+
+        system_prompt = task_config.get("system-prompt")
+        if system_prompt:
+            cmd.extend(["--system-prompt", system_prompt])
+
+        append_prompts = task_config.get("append-system-prompt")
+        if append_prompts:
+            if isinstance(append_prompts, str):
+                append_prompts = [append_prompts]
+            for extra in append_prompts:
+                cmd.extend(["--append-system-prompt", extra])
+
         for unsupported in ("additional-dirs", "mcp-servers", "mcp-config-file"):
             if task_config.get(unsupported):
                 logger.warning(
@@ -146,12 +172,10 @@ class PiAdapter(BaseAdapter):
                     "and MCP servers are managed with `pi mcp`"
                 )
 
-        # 14. raw-args: passthrough
         raw_args = task_config.get("raw-args", [])
         if raw_args:
             cmd.extend(raw_args)
 
-        # 15. Prompt last, after "--" so a leading "-" is never parsed as a flag
         cmd.extend(["--", prompt])
 
         return cmd

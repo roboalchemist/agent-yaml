@@ -72,7 +72,41 @@ SAMPLES = {
     "quiet": True,
     "effort": "high",
     "sandbox": True,
+    "json-schema": "schema.json",
+    "last-message-file": "/tmp/last.txt",
+    "system-prompt": "Be terse.",
+    "append-system-prompt": ["Be brief."],
+    "settings": "{}",
+    "disable-slash-commands": True,
+    "max-budget": 2.5,
+    "fallback-model": "sonnet",
+    "project": "demo",
+    "log-file": "/tmp/agy.log",
+    "log-level": "debug",
+    "color": "never",
+    "files": ["/tmp/file.txt"],
+    "images": ["/tmp/img.png"],
+    "enable": ["web_search"],
+    "ignore-user-config": True,
+    "ignore-rules": True,
+    "events-file": "/tmp/events.jsonl",
+    "max-concurrent-ops": 3,
+    "api-rate-limit": 20,
+    "config-overrides": ["model=test"],
+    "session-dir": "/tmp/sessions",
+    "no-context-files": True,
+    "no-mcp": True,
+    "no-builtin-tools": True,
+    "skills": ["/tmp/skills"],
+    "extensions": ["builtin:mcp"],
     "timeout": 300,
+}
+
+# Values whose meaning depends on the harness (same key, different type/semantics).
+AGENT_SAMPLES = {
+    "provider": {"codex": "ollama"},
+    "sandbox": {"codex": "read-only"},
+    "session": {"pi": True, "claude": False, "codex": False},
 }
 
 HEADER = "| Surface | opencode | claude | codex | pi | vtcode | antigravity |"
@@ -130,7 +164,7 @@ def assert_rejected(agent, surface, sample):
 
 def assert_cell(surface, agent, cell):
     adapter_cls = ADAPTERS[agent]
-    sample = SAMPLES[surface]
+    sample = AGENT_SAMPLES.get(surface, {}).get(agent, SAMPLES[surface])
     baseline, _ = build(adapter_cls, {})
     cmd, warnings = build(adapter_cls, {surface: sample})
 

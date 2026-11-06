@@ -216,7 +216,7 @@ and the HTTP API are in [docs/INTERFACE_RUNNER.md](docs/INTERFACE_RUNNER.md).
 |---------|--------------------|------------|
 | `opencode` | `--auto` | `--model provider/model` |
 | `claude` | `--dangerously-skip-permissions` | `--model` (aliases translated) |
-| `codex` | `--full-auto` | `-m` |
+| `codex` | `--dangerously-bypass-approvals-and-sandbox` | `--model` |
 | `pi` | `--approve` | `--model provider/id` |
 | `vtcode` | `--dangerously-skip-permissions` | `--model` |
 | `antigravity` | `--dangerously-skip-permissions` | `--model` |
@@ -257,9 +257,9 @@ gateway). See [tests/README.md](tests/README.md).
   `spec/YAML_SPEC.md` documents them. Use the mapping form.
 - `agent-yaml run --resume` is a no-op. Resumption happens through each loop's `resume: true` plus
   `checkpoint-file`.
-- The Codex adapter emits flags that recent `codex-cli` releases reject. The Claude adapter sends
-  `--allowed-mcp-server-names`, which current `claude` builds reject. Both are listed with
-  workarounds in [docs/ADAPTER_TROUBLESHOOTING.md](docs/ADAPTER_TROUBLESHOOTING.md).
+- Adapter flags track the CLI versions listed in [docs/CONFIG_SURFACES.md](docs/CONFIG_SURFACES.md).
+  Codex 0.153.4, Claude 2.1.302, and OpenCode 2.0.25 removed flags that older adapter releases
+  emitted; the current mappings use the verified replacements.
 - Cancellation is best effort: in a parallel group with `on-error: fail`, tasks already scheduled
   still run before the workflow aborts.
 

@@ -30,8 +30,8 @@ agent-yaml validate tasks/my-workflow.yaml --cli-agent codex
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | Task "succeeds" instantly, does nothing | Prompt began with `-`, so the CLI printed help and exited 0. OpenCode's adapter guards this with `--`, others pass the prompt positionally. | Prefix the prompt with text, never a flag-like token (`Don't…`, `--…`). |
-| `error: unknown option '--full-auto'` (codex) | codex-cli 0.153.4 dropped flags the adapter still emits. | Remove `skip-confirmations` / `permissions` / `web-search` from `cli-agent-config`, or use `raw-args`. |
-| `error: unknown option '--allowed-mcp-server-names'` (claude) | `mcp-servers` is translated to a Gemini-only flag even for the Claude adapter (`agent_yaml/adapters/claude.py:104`). | Don't set `mcp-servers` with `cli-agent: claude`; use `mcp-config-file` or `raw-args`. |
+| `error: unknown option '--full-auto'` (codex) | You are on an adapter release older than codex-cli 0.153.4. | Update agent-yaml; the current adapter emits `--dangerously-bypass-approvals-and-sandbox`, `-c approval_policy=…`, and `--enable web_search`. |
+| `mcp-servers` is ignored (claude) | Claude 2.x removed `--allowed-mcp-server-names`. | Scope servers in the MCP config file (`mcp-config-file`); the adapter warns instead of emitting a dead flag. |
 | Agent sees none of the workflow `environment:` values (OpenCode) | Running against the shared background server instead of a private one. | Keep `standalone` unset/true (the adapter passes `--standalone` by default); do not set `server`. |
 | Model ignored / provider error (OpenCode) | Model passed without `provider/` prefix. | Use `gateway/model-name`, `anthropic/claude-haiku-5-5`, … The adapter warns when `/` is missing. |
 | `additional-dirs` silently ignored (OpenCode) | `opencode run` has no equivalent flag. | Configure directories in `opencode.json`; the adapter logs a warning. |
@@ -54,9 +54,11 @@ agent-yaml validate tasks/my-workflow.yaml --cli-agent codex
 | `skip-confirmations: true` | `--auto` |
 | `model` | `--model provider/model[#variant]`; aliases `haiku-5.5`, `sonnet-5.5`, `opus-5.5` are translated |
 | `agent` / `permissions: [x]` | `--agent x` (`agent` wins over `permissions`) |
-| `output-format: json` | `--format json` |
-| `session-id` / `title` | `--session` / `--title` |
-| `debug: true` | `--print-logs` |
+| `output-format: json` | `--format json`; `default` and `text` add nothing |
+| `session-id` / `continue` / `title` | `--session` / `--continue` / `--title` |
+| `files` | `--file PATH` (repeated) |
+| `log-level` | `--log-level all|trace|debug|info|warn|error|fatal|none` |
+| `debug: true` | `--print-logs` (server logs while `--standalone` is active) |
 | prompt | last argument, after `--` |
 | `additional-dirs`, `mcp-servers`, `mcp-config-file` | **ignored with a warning** — configure in `opencode.json` |
 
@@ -68,17 +70,22 @@ Requires OpenCode v2.x (`--standalone`/`--auto` do not exist in v1).
 |--------|----------|
 | *(always)* | `pi -p` (print mode, one prompt and exit) |
 | `skip-confirmations: true` | `--approve` (trust project-local files) |
+| `skip-confirmations: false` | `--no-approve` (explicit opt-out) |
 | `provider` / `model` | `--provider` / `--model`; `provider/id` and `id:thinking` pass through |
 | `thinking` | `--thinking off|minimal|low|medium|high|xhigh|max` |
 | `tools` (list or string) | `--tools read,bash` |
 | `no-tools` / `exclude-tools` | `--no-tools` / `--exclude-tools name,name` |
-| `output-format: json` or `rpc` | `--mode json` / `--mode rpc`; `text` is the default |
+| `output-format: json` | `--mode json`; `text` is the default (`rpc` is a long-lived stdin protocol, not a one-shot output format) |
 | `session-id` | `--session-id ID` (creates the session when it does not exist) |
 | `continue: true` | `--continue` (session-id wins) |
 | *(default when no session)* | `--no-session`, so each task is ephemeral |
 | `session: true` | keep persistence instead of `--no-session` |
+| `session-dir` | `--session-dir DIR` |
+| `system-prompt` / `append-system-prompt` | `--system-prompt` / `--append-system-prompt` (repeated) |
+| `extensions` / `skills` | `-e NAME` / `--skill PATH` (repeated) |
+| `no-builtin-tools` / `no-context-files` / `no-mcp` | matching flags |
 | `title` | `--name NAME` |
-| `debug: true` | `--verbose` |
+| `debug: true` | `--verbose` (accepted; pi only uses it in the interactive TUI) |
 | `no-extensions: true` | `--no-extensions` |
 | prompt | last argument, after `--` |
 | `additional-dirs`, `mcp-servers`, `mcp-config-file` | **ignored with a warning** — tasks run in the workflow directory, MCP servers use `pi mcp` |
@@ -134,14 +141,21 @@ from the matrix.
 |--------|----------|
 | `skip-confirmations: true` | `--dangerously-skip-permissions` |
 | `additional-dirs` | `--add-dir=DIR` (repeated) |
-| `model` | `--model`; `sonnet-4.5` / `opus-4` are translated to full ids |
+| `model` | `--model`; legacy `sonnet-4.5` / `opus-4` map to the `sonnet` / `opus` aliases |
 | `mcp-config-file` | `--mcp-config PATH` |
-| `permissions: [x]` | `--permission-mode x` |
-| `session-id` | `--session-id` |
+| `permissions: [x]` | `--permission-mode x` (first entry wins) |
+| `session-id` / `continue` | `--session-id` / `--continue` |
+| `agent` / `title` / `effort` | `--agent` / `--name` / `--effort` |
+| `tools` / `no-tools` / `exclude-tools` | `--tools` / `--tools ""` / `--disallowed-tools a,b` |
+| `session: false` | `--no-session-persistence` |
+| `json-schema` | `--json-schema` |
+| `system-prompt` / `append-system-prompt` | `--system-prompt` / `--append-system-prompt` |
+| `settings` / `max-budget` / `fallback-model` | `--settings` / `--max-budget-usd` / `--fallback-model` |
+| `disable-slash-commands` | `--disable-slash-commands` |
 | `output-format` | `--output-format` (`stream-json` supported) |
 | `debug: true` | `--debug` |
 | prompt | `--print PROMPT` |
-| `mcp-servers` | `--allowed-mcp-server-names …` — **not a Claude flag**, current `claude` rejects it (`agent_yaml/adapters/claude.py:104`) |
+| `mcp-servers` | **ignored with a warning**: Claude 2.x has no per-server CLI allow flag; scope servers in the MCP config file |
 
 ### vtcode
 
@@ -153,7 +167,11 @@ from the matrix.
 | `output-format: json` | `--json` |
 | `security-level` | `--security-level strict|moderate|permissive` |
 | `max-tool-calls` | `--max-tool-calls N` |
-| `session-id` / `continue` | `--session-id` / `exec resume --last` (or `exec resume ID`) |
+| `tools` / `exclude-tools` | `--allowed-tools a,b` / `--disallowed-tools a,b` |
+| `max-concurrent-ops` / `api-rate-limit` | matching flags |
+| `config-overrides` / `log-level` / `color` | `-c k=v` (repeated) / `--log-level` / `--color` |
+| `events-file` / `last-message-file` | `--events` / `--last-message-file` (exec only) |
+| `session-id` / `continue` | `--session-id` / `exec resume --last` (or `exec resume ID`); resume lacks `--json`, `--events`, `--last-message-file` |
 | `debug: true` / `quiet: true` | `--verbose` / `--quiet` |
 | prompt | first positional argument, after the flags |
 | `additional-dirs`, `mcp-servers`, `mcp-config-file` | **ignored with a warning** |
@@ -208,13 +226,16 @@ checks each option, including a tool-driven file write, NDJSON output, and sessi
 |--------|----------|
 | *(always)* | `agy -p PROMPT` (headless print mode) |
 | `skip-confirmations: true` | `--dangerously-skip-permissions` |
-| `model` / `effort` / `agent` | `--model` / `--effort low|medium|high` / `--agent` |
+| `model` / `effort` / `agent` | `--model` / `--effort low|medium|high|xhigh|max` / `--agent` |
+| `permissions: [x]` | `--mode plan|accept-edits|auto` (yolo/never → `--dangerously-skip-permissions`) |
 | `output-format` | `--output-format text|json|stream-json` |
 | `session-id` / `continue` | `--conversation ID` / `--continue` |
 | `sandbox: true` | `--sandbox` |
 | `additional-dirs` | `--add-dir DIR` (repeated) |
 | `timeout` | `--print-timeout Ns` (the executor still enforces its own limit) |
-| `mcp-servers`, `mcp-config-file` | **ignored with a warning** (use `agy mcp` / `~/.gemini/antigravity-cli/settings.json`) |
+| `json-schema` / `settings` / `project` | `--json-schema` / `--settings` / `--project` |
+| `log-file` / `disable-slash-commands` | `--log-file` / `--disable-slash-commands` |
+| `mcp-servers`, `mcp-config-file` | **ignored with a warning** (add servers with `agy mcp add` or in `~/.gemini/antigravity-cli/settings.json`) |
 
 `agy` authenticates either through a signed-in Google account or through a Gemini API key:
 
@@ -253,12 +274,22 @@ install has none.
 | Config | Emission |
 |--------|----------|
 | *(always)* | `codex exec --skip-git-repo-check` |
-| `skip-confirmations: true` | `--full-auto` (rejected by codex-cli 0.153.4) |
-| `additional-dirs` | `-C <first dir>` only |
-| `permissions: [x]` | `-a x` (rejected by 0.153.4) |
-| `web-search: true` | `--search` (rejected by 0.153.4) |
-| `debug: true` | `-c debug=true` |
-| `output-format` | **not supported** (warning) |
+| `skip-confirmations: true` | `--dangerously-bypass-approvals-and-sandbox` |
+| `additional-dirs` | `--add-dir DIR` (repeated; writable alongside the root) |
+| `permissions: [x]` | `plan`/`read-only`/`workspace-write`/`danger-full-access` → `--sandbox`; `untrusted|on-failure|on-request|never` → `-c approval_policy=x` |
+| `sandbox` | `--sandbox read-only|workspace-write|danger-full-access` |
+| `session-id` / `continue` | `codex exec resume ID` / `codex exec resume --last` (resume has no `--sandbox`/`--add-dir`) |
+| `provider` | `--oss --local-provider ollama|lmstudio` |
+| `session: false` | `--ephemeral` |
+| `effort` | `-c model_reasoning_effort=x` |
+| `output-format: json` | `--json` |
+| `web-search: true` | `--enable web_search` |
+| `json-schema` | `--output-schema FILE` |
+| `last-message-file` / `images` | `-o FILE` / `-i FILE` (repeated) |
+| `enable` | `--enable FEATURE` (repeated) |
+| `ignore-user-config` / `ignore-rules` | matching flags |
+| `config-overrides` | `-c k=v` (repeated) |
+| `debug: true` | **ignored with a warning**: no headless debug flag |
 | prompt | positional, last argument |
 
 ---
@@ -270,9 +301,10 @@ These are verified against the binaries in use when this was written and are rec
 
 | Adapter | Flag | Status |
 |---------|------|--------|
-| `codex` | `--full-auto`, `-a`, `--search` | rejected by codex-cli 0.153.4 |
-| `claude` | `--allowed-mcp-server-names` | rejected by current `claude` (only emitted when `mcp-servers` is set) |
+| `codex` | `--full-auto`, `-a`, `--search` | removed in codex-cli 0.153.4; the adapter now emits the verified replacements above |
+| `claude` | `--allowed-mcp-server-names` | removed in Claude 2.x; the adapter no longer emits it and warns instead |
 | `opencode` | `additional-dirs`, `mcp-servers`, `mcp-config-file`, `output-format: stream-json` | never supported — warning only |
+| `pi` | `--mode rpc` | not an output format; RPC needs a long-lived stdin, so the adapter rejects it |
 
 **`raw-args` is the escape hatch.** Every adapter appends `raw-args` verbatim after the translated
 flags and before the prompt/producer flag, so a new CLI flag can be used without touching the adapter:

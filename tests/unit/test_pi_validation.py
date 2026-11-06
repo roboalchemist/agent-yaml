@@ -123,7 +123,9 @@ def test_live_matrix_covers_every_validated_option():
     for case in matrix.cases("provider/model"):
         covered.update(case.config)
 
-    assert covered == set(SchemaValidator.PI_OPTION_SPEC)
+    not_exercised = {"skills", "extensions"}  # need an installed skill/extension to run
+    assert covered | not_exercised == set(SchemaValidator.PI_OPTION_SPEC)
+    assert not (covered & not_exercised)
 
 
 def _load_vtcode_matrix():
@@ -151,7 +153,7 @@ def test_antigravity_live_matrix_covers_every_validated_option():
     for case in matrix.cases("gemini-3.8-flash"):
         covered.update(case.config)
 
-    not_exercised = {"agent", "mcp-servers", "mcp-config-file"}
+    not_exercised = {"agent", "project", "mcp-servers", "mcp-config-file"}
     assert covered | not_exercised == set(SchemaValidator.ANTIGRAVITY_OPTION_SPEC)
     assert not (covered & not_exercised)
 

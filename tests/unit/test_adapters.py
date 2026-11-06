@@ -111,12 +111,11 @@ CANONICAL_COMMANDS = [
             "--dangerously-skip-permissions",
             "--add-dir=/tmp",
             "--add-dir=/var/tmp",
-            *["--model", "claude-sonnet-4-5-20250929"],
+            *["--model", "sonnet"],
             "--debug",
             *["--tools", "default"],
             *["--output-format", "json"],
             *["--session-id", "workflow-123"],
-            *["--allowed-mcp-server-names", "notion", "linear"],
             *["--mcp-config", "/path/to/config.json"],
             *["--permission-mode", "plan"],
             "--verbose",
@@ -140,12 +139,11 @@ CANONICAL_COMMANDS = [
             "codex",
             "exec",
             "--skip-git-repo-check",
-            "--full-auto",
-            *["-C", "/tmp"],
+            "--dangerously-bypass-approvals-and-sandbox",
+            *["--add-dir", "/tmp"],
             *["--model", "gpt-5-codex"],
-            *["-c", "debug=true"],
-            *["-a", "on-failure"],
-            "--search",
+            *["-c", "approval_policy=on-failure"],
+            *["--enable", "web_search"],
             "--verbose",
             PROMPT,
         ],
@@ -227,7 +225,7 @@ class TestCommandShape:
 
 SKIP_CONFIRMATIONS_FLAGS = [
     pytest.param(ClaudeAdapter, "--dangerously-skip-permissions", id="claude"),
-            pytest.param(CodexAdapter, "--full-auto", id="codex"),
+            pytest.param(CodexAdapter, "--dangerously-bypass-approvals-and-sandbox", id="codex"),
     pytest.param(OpenCodeAdapter, "--auto", id="opencode"),
     pytest.param(PiAdapter, "--approve", id="pi"),
     pytest.param(VTCodeAdapter, "--dangerously-skip-permissions", id="vtcode"),
@@ -240,7 +238,7 @@ ADDITIONAL_DIRS_FLAGS = [
         ["--add-dir=/tmp", "--add-dir=/var/tmp"],
         id="claude",
     ),
-            pytest.param(CodexAdapter, ["/tmp"], ["-C", "/tmp"], id="codex-single-dir"),
+            pytest.param(CodexAdapter, ["/tmp", "/var/tmp"], ["--add-dir", "/tmp", "--add-dir", "/var/tmp"], id="codex"),
 ]
 
 MODEL_FLAGS = [
@@ -256,10 +254,8 @@ MODEL_FLAGS = [
     pytest.param(VTCodeAdapter, "deepseek-flash", "deepseek-flash", id="vtcode-passthrough"),
     pytest.param(AntigravityAdapter, "gemini-4-argon-high", "gemini-4-argon-high", id="antigravity-passthrough"),
     pytest.param(PiAdapter, "zai/glm-5.1:high", "zai/glm-5.1:high", id="pi-thinking-suffix"),
-    pytest.param(
-        ClaudeAdapter, "sonnet-4.5", "claude-sonnet-4-5-20250929", id="claude-maps-sonnet-4.5"
-    ),
-    pytest.param(ClaudeAdapter, "opus-4", "claude-opus-4", id="claude-maps-opus-4"),
+    pytest.param(ClaudeAdapter, "sonnet-4.5", "sonnet", id="claude-maps-sonnet-4.5"),
+    pytest.param(ClaudeAdapter, "opus-4", "opus", id="claude-maps-opus-4"),
         pytest.param(
         OpenCodeAdapter, "haiku-5.5", "anthropic/claude-haiku-5-5", id="opencode-alias-haiku-5.5"
     ),
@@ -276,7 +272,6 @@ MODEL_FLAGS = [
 
 DEBUG_FLAGS = [
     pytest.param(ClaudeAdapter, ["--debug"], id="claude"),
-            pytest.param(CodexAdapter, ["-c", "debug=true"], id="codex"),
     pytest.param(OpenCodeAdapter, ["--print-logs"], id="opencode"),
     pytest.param(PiAdapter, ["--verbose"], id="pi"),
     pytest.param(VTCodeAdapter, ["--verbose"], id="vtcode"),
@@ -300,12 +295,12 @@ SESSION_ID_FLAGS = [
 
 PERMISSION_FLAGS = [
     pytest.param(ClaudeAdapter, "plan", ["--permission-mode", "plan"], id="claude"),
-    pytest.param(CodexAdapter, "on-failure", ["-a", "on-failure"], id="codex"),
+    pytest.param(CodexAdapter, "on-failure", ["-c", "approval_policy=on-failure"], id="codex"),
     pytest.param(OpenCodeAdapter, "plan", ["--agent", "plan"], id="opencode"),
 ]
 
 WEB_SEARCH_FLAGS = [
-    pytest.param(CodexAdapter, {"web-search": True}, ["--search"], id="codex"),
+    pytest.param(CodexAdapter, {"web-search": True}, ["--enable", "web_search"], id="codex"),
 ]
 
 
@@ -344,13 +339,11 @@ class TestSharedSettings:
             build(adapter_cls, {"session-id": "my-session-123"}), flag, "my-session-123"
         )
 
-    @pytest.mark.parametrize(
-        "adapter_cls", [ClaudeAdapter], ids=["claude"]
-    )
-    def test_mcp_servers(self, adapter_cls):
-        cmd = build(adapter_cls, {"mcp-servers": ["notion", "linear", "tavily"]})
+    def test_claude_mcp_servers_warn_instead_of_emitting_a_dead_flag(self):
+        cmd, warnings = build_with_warnings(ClaudeAdapter, {"mcp-servers": ["notion"]})
 
-        assert has_tokens(cmd, "--allowed-mcp-server-names", "notion", "linear", "tavily")
+        assert cmd == build(ClaudeAdapter, {})
+        assert any("per-server CLI allow flag" in message for message in warnings)
 
     @pytest.mark.parametrize("adapter_cls, mode, tokens", PERMISSION_FLAGS)
     def test_first_permission_mode_is_used(self, adapter_cls, mode, tokens):
@@ -365,12 +358,12 @@ class TestSharedSettings:
 
 
 UNSUPPORTED_SETTINGS = [
-                        pytest.param(
+    pytest.param(
         CodexAdapter,
-        "output-format",
-        "json",
-        "Codex does not support output-format configuration",
-        id="codex-output-format",
+        "debug",
+        True,
+        "codex exec has no debug flag; ignoring debug",
+        id="codex-debug",
     ),
     pytest.param(
         OpenCodeAdapter,
@@ -543,31 +536,47 @@ class TestCodexAdapter:
         assert "-p" not in cmd
         assert "--print" not in cmd
 
-    def test_only_the_first_additional_dir_is_used(self):
+    def test_every_additional_dir_becomes_add_dir(self):
         cmd, warnings = build_with_warnings(
             CodexAdapter, {"additional-dirs": ["/tmp", "/var/tmp", "/private"]}
         )
 
-        assert has_tokens(cmd, "-C", "/tmp")
-        assert cmd.count("-C") == 1
-        assert "/var/tmp" not in cmd
-        assert "/private" not in cmd
-        assert len(warnings) == 1
-        assert "only supports one directory" in warnings[0]
-        assert "/var/tmp" in warnings[0]
-        assert "/private" in warnings[0]
-
-    def test_single_additional_dir_does_not_warn(self):
-        cmd, warnings = build_with_warnings(CodexAdapter, {"additional-dirs": ["/tmp"]})
-
-        assert has_tokens(cmd, "-C", "/tmp")
+        assert has_tokens(cmd, "--add-dir", "/tmp", "--add-dir", "/var/tmp", "--add-dir", "/private")
+        assert "-C" not in cmd
         assert warnings == []
 
-    def test_debug_is_a_config_override_not_a_flag(self):
-        cmd = build(CodexAdapter, {"debug": True})
+    def test_debug_warns_and_is_dropped(self):
+        cmd, warnings = build_with_warnings(CodexAdapter, {"debug": True})
 
-        assert has_tokens(cmd, "-c", "debug=true")
-        assert "--debug" not in cmd
+        assert cmd == build(CodexAdapter, {})
+        assert any("has no debug flag" in message for message in warnings)
+
+    def test_continue_and_session_id_use_exec_resume(self):
+        assert build(CodexAdapter, {"continue": True})[:4] == [
+            "codex",
+            "exec",
+            "resume",
+            "--last",
+        ]
+        cmd = build(CodexAdapter, {"session-id": "abc-123"})
+        assert cmd[:4] == ["codex", "exec", "resume", "abc-123"]
+        assert cmd[-1] == PROMPT
+
+    def test_sandbox_and_output_json(self):
+        cmd = build(CodexAdapter, {"sandbox": "workspace-write", "output-format": "json"})
+
+        assert has_tokens(cmd, "--sandbox", "workspace-write")
+        assert "--json" in cmd
+
+    def test_resume_drops_exec_only_flags_with_warnings(self):
+        cmd, warnings = build_with_warnings(
+            CodexAdapter,
+            {"continue": True, "sandbox": "read-only", "additional-dirs": ["/tmp"]},
+        )
+
+        assert "--sandbox" not in cmd
+        assert "--add-dir" not in cmd
+        assert len(warnings) == 2
 
 
 OPENCODE_SERVER = "http://127.0.0.1:4096"
@@ -888,8 +897,12 @@ class TestAntigravityAdapter:
 
         assert has_tokens(cmd, "--print-timeout", "600s")
 
-    def test_prompt_after_dash_p_guards_a_leading_dash(self):
-        cmd, warnings = build_with_warnings(AntigravityAdapter, {}, "-starts-with-a-dash")
+    def test_prompt_is_passed_verbatim_as_the_value_of_dash_p(self):
+        cmd = build(AntigravityAdapter, {}, "-starts-with-a-dash")
 
-        assert cmd[-2:] == ["-p", " -starts-with-a-dash"]
-        assert any("starts with '-'" in message for message in warnings)
+        assert cmd[-2:] == ["-p", "-starts-with-a-dash"]
+
+    def test_permissions_map_to_mode(self):
+        cmd = build(AntigravityAdapter, {"permissions": ["plan-only"]})
+
+        assert has_tokens(cmd, "--mode", "plan")

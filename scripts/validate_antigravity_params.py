@@ -129,6 +129,44 @@ def cases(model: str) -> list[Case]:
             note="--continue resumes the most recent conversation",
             tags=["session"],
         ),
+        Case(
+            "permissions",
+            {"model": model, "permissions": ["plan"]},
+            expect_stdout=None,
+            note="permissions map to --mode plan (plan mode produces artifacts, not a text answer)",
+            tags=["flags"],
+        ),
+        Case(
+            "json-schema",
+            {
+                "model": model,
+                "output-format": "json",
+                "json-schema": '{"type":"object","properties":{"ok":{"type":"boolean"}}}',
+            },
+            expect_stdout=None,
+            expect_json_object=True,
+            note="--json-schema constrains structured output",
+            tags=["output"],
+        ),
+        Case(
+            "settings",
+            {"model": model, "settings": "{}"},
+            note="--settings accepts an inline JSON object",
+            tags=["flags"],
+        ),
+        Case(
+            "log-file",
+            {"model": model, "log-file": "agy-matrix.log"},
+            expect_file="agy-matrix.log",
+            note="--log-file writes the CLI log",
+            tags=["flags"],
+        ),
+        Case(
+            "disable-slash-commands",
+            {"model": model, "disable-slash-commands": True},
+            note="--disable-slash-commands is accepted",
+            tags=["flags"],
+        ),
     ]
 
 
