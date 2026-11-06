@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document defines the adapter layer that translates generic meta-agent YAML configurations into tool-specific CLI invocations. The adapter enables a single YAML workflow to run on multiple AI coding CLI tools (Claude, Gemini, Qwen, Codex).
+This document defines the adapter layer that translates generic meta-agent YAML configurations into tool-specific CLI invocations. The adapter enables a single YAML workflow to run on multiple AI coding CLI tools (current adapters: opencode, claude, codex, pi, vtcode, antigravity; this document predates them and the per-adapter tables below are historical).
 
 ## Design Principles
 
@@ -18,7 +18,7 @@ This document defines the adapter layer that translates generic meta-agent YAML 
 
 ```yaml
 directory: <string>              # Working directory
-cli-agent: <string>               # Which CLI to use: claude, gemini, qwen, codex
+cli-agent: <string>               # Which CLI to use: opencode, claude, codex, pi, vtcode, antigravity
 cli-agent-config:                      # Generic CLI configuration
   skip-confirmations: <boolean>  # Auto-approve actions
   additional-dirs: <list>        # Extra directories in context

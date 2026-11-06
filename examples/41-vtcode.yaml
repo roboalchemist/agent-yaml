@@ -1,13 +1,16 @@
 # Example 41: vtcode CLI agent
 # Tests: cli-agent: vtcode with headless exec
-# Requires [automation.full_auto] in the workspace vtcode.toml and a provider key.
+# Requires:
+#   - [automation.full_auto] in the workspace vtcode.toml
+#   - a custom provider in the platform vtcode.toml (see docs/ADAPTER_TROUBLESHOOTING.md)
+#   - the provider's API key exported (BIFROST_VK_MASTER for the block below)
 
 directory: /tmp
 
 cli-agent: vtcode
 cli-agent-config:
-  provider: deepseek
-  model: deepseek-flash
+  provider: bifrost
+  model: chunglet/deepseek-v4.1-flash
   skip-confirmations: true
   timeout: 600
 

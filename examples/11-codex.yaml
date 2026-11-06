@@ -126,7 +126,7 @@ task:
         ✅ Include concatenation
 
         This demonstrates CLI-agnostic YAML - same workflow runs
-        on Claude, Gemini, Qwen, or Codex by changing cli-agent field.
+        on Claude, Codex, pi, vtcode, or Antigravity by changing the cli-agent field.
 
         OUTPUT: {{output-dir}}/"
       include:

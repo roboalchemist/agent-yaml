@@ -7,7 +7,7 @@ Working notes for Claude Code in this repository. The canonical agent guide is
 ## What this is
 
 `agent-yaml` runs declarative YAML workflows by spawning an AI coding-agent CLI once per task
-(`opencode`, `claude`, `gemini`, `qwen`, `codex`). The Python package is `agent_yaml` — do not
+(`opencode`, `claude`, `codex`, `pi`, `vtcode`, `antigravity`). The Python package is `agent_yaml` — do not
 rename it.
 
 ```bash

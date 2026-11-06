@@ -32,7 +32,7 @@ class SchemaValidator:
     - Field value constraints (cli-agent must be a supported adapter)
     """
 
-    VALID_CLI_AGENTS = ["opencode", "claude", "qwen", "codex", "pi", "vtcode", "antigravity"]
+    VALID_CLI_AGENTS = ["opencode", "claude", "codex", "pi", "vtcode", "antigravity"]
     VALID_ON_ERROR_VALUES = ["fail", "continue", "skip"]
 
     # Adapter options. Anything not listed here is rejected, so a typo or a

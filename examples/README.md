@@ -76,7 +76,6 @@ The negative examples are expected to exit non-zero; that is the point.
 | `39-when-conditions.yaml` | `when` expressions (`and`, `or`, `not`, comparisons) |
 | `37-environment-variables.yaml` | workflow vs task `env:` precedence |
 | `38-env-interpolation.yaml` | `{{env.VAR}}` interpolation |
-| `10-qwen.yaml` | `cli-agent: qwen` |
 | `11-codex.yaml` | `cli-agent: codex` |
 
 ## Output and cleanup

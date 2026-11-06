@@ -48,7 +48,7 @@ agent-yaml run tasks/my-workflow.yaml --dry-run
 | Field | Required | Default | Meaning |
 |-------|----------|---------|---------|
 | `directory` | yes | — | Working directory for every task; `~` expanded, must exist |
-| `cli-agent` | no | `claude` | `opencode`, `claude`, `qwen`, `codex`, `pi`, `vtcode`, `antigravity` |
+| `cli-agent` | no | `claude` | `opencode`, `claude`, `codex`, `pi`, `vtcode`, `antigravity` |
 | `cli-agent-config` | no | — | Adapter options (`model`, `timeout`, `skip-confirmations`, `additional-dirs`, …) |
 | `on-error` | no | `fail` | `fail`, `continue`, `skip`; overridable per task |
 | `environment` | no | — | Workflow-level env vars, inherited by tasks |

@@ -1,7 +1,7 @@
 # Adapter Troubleshooting
 
 agent-yaml never speaks to a model directly — every task is one subprocess invocation of a CLI
-(`opencode`, `claude`, `qwen`, `codex`, `pi`, `vtcode`, `agy`). Each adapter translates the same
+(`opencode`, `claude`, `codex`, `pi`, `vtcode`, `agy`). Each adapter translates the same
 `cli-agent-config` keys into that CLI's flags, and when a CLI changes its flags the adapter breaks in
 ways that look like workflow bugs. This page is the symptom → cause → fix guide.
 
@@ -38,7 +38,7 @@ agent-yaml validate tasks/my-workflow.yaml --cli-agent codex
 | Timeout kills a run mid-way | `cli-agent-config.timeout` is per task, and parallel loop workers share it. | Raise `timeout`, or split the task. |
 | `codex exec` fails outside a git repo | Codex refuses to run without one. | Already handled: the adapter always passes `--skip-git-repo-check`. |
 | Only one `additional-dirs` entry applies (codex) | Codex supports a single `-C`. | The adapter uses `additional-dirs[0]` and warns about the rest. |
-| Missing CLI at validate time | Not installed / wrong PATH. | `which opencode` / `claude` / `qwen` / `codex` / `pi` / `vtcode` / `agy`; install or adjust PATH. |
+| Missing CLI at validate time | Not installed / wrong PATH. | `which opencode` / `claude` / `codex` / `pi` / `vtcode` / `agy`; install or adjust PATH. |
 
 ---
 
@@ -142,21 +142,6 @@ from the matrix.
 | prompt | `--print PROMPT` |
 | `mcp-servers` | `--allowed-mcp-server-names …` — **not a Claude flag**, current `claude` rejects it (`agent_yaml/adapters/claude.py:104`) |
 
-### Qwen
-
-| Config | Emission |
-|--------|----------|
-| `skip-confirmations: true` | `--yolo` |
-| `additional-dirs` | `--include-directories DIR…` |
-| `permissions: [x]` | `--approval-mode x` |
-| `mcp-servers` | `--allowed-mcp-server-names …` |
-| `extensions`, `checkpointing`, `screen-reader`, `telemetry` | matching flags |
-| `model` | translates `qwen3-coder` → `qwen3-coder-plus` |
-| `web-search` | `--tavily-api-key` from `search-api-key` |
-| `output-format: json` | `--output-format json` |
-| prompt | `-p PROMPT` |
-| `session-id`, `mcp-config-file` | **ignored with a warning** |
-
 ### vtcode
 
 | Config | Emission |
@@ -167,13 +152,54 @@ from the matrix.
 | `output-format: json` | `--json` |
 | `security-level` | `--security-level strict|moderate|permissive` |
 | `max-tool-calls` | `--max-tool-calls N` |
-| `session-id` / `continue` | `--session-id` / `--continue` |
+| `session-id` / `continue` | `--session-id` / `exec resume --last` (or `exec resume ID`) |
 | `debug: true` / `quiet: true` | `--verbose` / `--quiet` |
-| prompt | positional, after `--` |
+| prompt | first positional argument, after the flags |
 | `additional-dirs`, `mcp-servers`, `mcp-config-file` | **ignored with a warning** |
 
 `vtcode exec` needs `[automation.full_auto]` in the workspace `vtcode.toml` (`enabled = true` plus an
 `allowed_tools` allow-list), and non-interactive runs need `VTCODE_TRUST_WORKSPACE=full-auto`.
+
+### vtcode with the Bifrost gateway
+
+vtcode reads custom providers from the platform config directory's `vtcode.toml`, not the workspace
+file:
+
+- macOS: `~/Library/Application Support/com.vinhnx.vtcode/vtcode.toml`
+- Linux: `~/.config/vtcode/vtcode.toml`
+
+```toml
+[[custom_providers]]
+name = "bifrost"
+display_name = "Bifrost"
+base_url = "https://bifrost.roboalch.com/v1"
+api_key_env = "BIFROST_VK_MASTER"
+model = "chunglet/deepseek-v4.1-flash"
+models = ["chunglet/deepseek-v4.1-flash"]
+```
+
+`--provider` is validated against the built-in providers plus everything in `custom_providers`, so
+the provider has to come from that file. A `[[custom_providers]]` block in a workspace `vtcode.toml`
+is ignored and `--provider bifrost` fails with `Unknown provider`. Export the variable named by
+`api_key_env` before running.
+
+```yaml
+cli-agent: vtcode
+cli-agent-config:
+  provider: bifrost
+  model: chunglet/deepseek-v4.1-flash
+  skip-confirmations: true
+```
+
+The live matrix runs every option through real inference:
+
+```bash
+python scripts/validate_vtcode_params.py
+```
+
+It defaults to `bifrost/chunglet/deepseek-v4.1-flash`, reads `BIFROST_VK_MASTER` from the
+environment or gopass, builds a workspace with the required `[automation.full_auto]` config, and
+checks each option, including a tool-driven file write, NDJSON output, and session resume.
 
 ### Antigravity
 
@@ -276,5 +302,5 @@ cli-agent-config:
 
 Source of truth: `agent_yaml/adapters/*.py` (per-CLI translation), `agent_yaml/adapters/__init__.py` (registry),
 `agent_yaml/executor.py` (argv construction, timeouts), `AGENTS.md` (known-breaking flags).
-Related: `spec/ADAPTER_SPEC.md`, `examples/10-qwen.yaml`, `examples/11-codex.yaml`,
+Related: `spec/ADAPTER_SPEC.md`, `examples/11-codex.yaml`,
 `examples/40-pi.yaml`, `examples/41-vtcode.yaml`, `examples/42-antigravity.yaml`.

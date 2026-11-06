@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Agent instructions for `agent-yaml`: a Python CLI that runs declarative YAML workflows by spawning an
-AI coding-agent CLI (`opencode`, `claude`, `gemini`, `qwen`, `codex`) once per task.
+AI coding-agent CLI (`opencode`, `claude`, `codex`, `pi`, `vtcode`, `antigravity`) once per task.
 
 The import package is `agent_yaml` (`from agent_yaml.executor import execute_single_task`). Do not
 rename it.
@@ -60,7 +60,7 @@ stale — do not work around it by exporting a different key.
 | `agent_yaml/ensure.py` | pre-flight tool checks (MCPs are a warning-only stub) |
 | `agent_yaml/events.py`, `agent_yaml/graph.py` | event emission + task-tree graph for the web runner |
 | `agent_yaml/web/` | FastAPI interface runner: app, SSE, SQLite store, scheduler, `static/webgl.js` stage-graph renderer, trace UI (`agent-yaml serve`) |
-| `agent_yaml/adapters/` | `base.py` + `opencode.py`, `claude.py`, `gemini.py`, `qwen.py`, `codex.py` |
+| `agent_yaml/adapters/` | `base.py` + `opencode.py`, `claude.py`, `codex.py`, `pi.py`, `vtcode.py`, `antigravity.py` |
 | `tests/` | tiers — see `tests/README.md` |
 | `examples/`, `tasks/` | user-facing workflows (dry-run by tests) |
 | `spec/` | authoritative specs (`YAML_SPEC.md`, `PROJECT_SPECS.md`, `ADAPTER_SPEC.md`) |

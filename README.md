@@ -32,7 +32,7 @@ agent-yaml --help
 ```
 
 Python 3.8+, tested on 3.9, 3.11 and 3.12, plus at least one supported agent CLI on `PATH`
-(`opencode`, `claude`, `qwen`, `codex`, `pi`, `vtcode`, or `antigravity`).
+(`opencode`, `claude`, `codex`, `pi`, `vtcode`, or `antigravity`).
 
 ## Quick start
 
@@ -103,7 +103,7 @@ CLI-specific options change.
 | Field | Type | Notes |
 |-------|------|-------|
 | `directory` | string | Required. Working directory for every task |
-| `cli-agent` | string | `opencode`, `claude`, `qwen`, `codex`, `pi`, `vtcode`, `antigravity` (default `claude`) |
+| `cli-agent` | string | `opencode`, `claude`, `codex`, `pi`, `vtcode`, `antigravity` (default `claude`) |
 | `environment` | map | Env vars inherited by every task |
 | `template-variables` | map | User variables, resolved in dependency order |
 | `includes` | map | Reusable prompt fragments, inline or from a file |
@@ -216,7 +216,6 @@ and the HTTP API are in [docs/INTERFACE_RUNNER.md](docs/INTERFACE_RUNNER.md).
 |---------|--------------------|------------|
 | `opencode` | `--auto` | `--model provider/model` |
 | `claude` | `--dangerously-skip-permissions` | `--model` (aliases translated) |
-| `qwen` | `--yolo` | `--model` |
 | `codex` | `--full-auto` | `-m` |
 | `pi` | `--approve` | `--model provider/id` |
 | `vtcode` | `--dangerously-skip-permissions` | `--model` |

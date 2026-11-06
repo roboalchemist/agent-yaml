@@ -85,8 +85,8 @@ def test_other_agents_are_not_held_to_pi_options():
     """The pi allowlist must not reject options that belong to another adapter."""
     validate(
         workflow(
-            {"web-search": True, "search-api-key": "sk-test", "agent": "plan"},
-            agent="qwen",
+            {"web-search": True, "agent": "plan"},
+            agent="codex",
         )
     )
 
@@ -124,6 +124,27 @@ def test_live_matrix_covers_every_validated_option():
         covered.update(case.config)
 
     assert covered == set(SchemaValidator.PI_OPTION_SPEC)
+
+
+def _load_vtcode_matrix():
+    path = REPO_ROOT / "scripts" / "validate_vtcode_params.py"
+    spec = importlib.util.spec_from_file_location("validate_vtcode_params", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_vtcode_live_matrix_covers_every_validated_option():
+    """Every vtcode option is either exercised live or explicitly warned-and-dropped."""
+    matrix = _load_vtcode_matrix()
+    covered = set()
+    for case in matrix.cases("bifrost", "chunglet/deepseek-v4.1-flash"):
+        covered.update(case.config)
+
+    ignored = {"additional-dirs", "mcp-servers", "mcp-config-file"}
+    assert covered | ignored == set(SchemaValidator.VTCODE_OPTION_SPEC)
+    assert not (covered & ignored)
 
 
 @pytest.mark.parametrize(

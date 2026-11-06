@@ -10,7 +10,7 @@ Maps generic configurations onto vtcode's flags:
 - security-level: strict|moderate|permissive → --security-level
 - max-tool-calls: N → --max-tool-calls N
 - session-id: "abc" → --session-id abc
-- continue: true → --continue (most recent session)
+- continue: true → `vtcode exec resume --last` (or `resume abc` when session-id is set)
 - raw-args: [...] → appended after translated flags, before the prompt
 - timeout → subprocess timeout (handled by the executor, NOT a CLI arg)
 
@@ -52,7 +52,17 @@ class VTCodeAdapter(BaseAdapter):
         Returns:
             list: Command as list of strings (argv format)
         """
-        cmd = ["vtcode", "exec"]
+        # `vtcode exec` does not accept --continue; resuming is the `resume`
+        # subcommand instead. With a session-id it takes the id positionally,
+        # without one it takes --last.
+        resume = bool(task_config.get("continue"))
+        session_id = task_config.get("session-id")
+        if resume and session_id:
+            cmd = ["vtcode", "exec", "resume", session_id]
+        elif resume:
+            cmd = ["vtcode", "exec", "resume", "--last"]
+        else:
+            cmd = ["vtcode", "exec"]
 
         # 1. provider and model
         provider = task_config.get("provider")
@@ -67,10 +77,14 @@ class VTCodeAdapter(BaseAdapter):
         if task_config.get("skip-confirmations"):
             cmd.append("--dangerously-skip-permissions")
 
-        # 3. output-format: json → --json (text is the default)
+        # 3. output-format: json → --json (text is the default). The resume
+        # subcommand has no --json flag.
         output_format = task_config.get("output-format")
         if output_format == "json":
-            cmd.append("--json")
+            if resume:
+                logger.warning("vtcode exec resume does not support --json; ignoring output-format")
+            else:
+                cmd.append("--json")
         elif output_format and output_format != "text":
             logger.warning(f"vtcode does not support output-format '{output_format}'")
 
@@ -84,12 +98,9 @@ class VTCodeAdapter(BaseAdapter):
         if max_tool_calls is not None:
             cmd.extend(["--max-tool-calls", str(max_tool_calls)])
 
-        # 6. session handling
-        session_id = task_config.get("session-id")
-        if session_id:
+        # 6. session handling (resume already placed the id/--last above)
+        if session_id and not resume:
             cmd.extend(["--session-id", session_id])
-        elif task_config.get("continue"):
-            cmd.append("--continue")
 
         # 7. logging
         if task_config.get("debug"):
@@ -110,8 +121,17 @@ class VTCodeAdapter(BaseAdapter):
         if raw_args:
             cmd.extend(raw_args)
 
-        # 10. Prompt last, after "--" so a leading "-" is never parsed as a flag
-        cmd.extend(["--", prompt])
+        # 10. Prompt is the first positional argument. vtcode's exec parser
+        # rejects `-- PROMPT` ("invalid value ... for '[WORKSPACE]'"), so the
+        # prompt goes last with no separator. A leading dash would be parsed as
+        # a flag, so it gets a single leading space.
+        if prompt.startswith("-"):
+            logger.warning(
+                "vtcode adapter: prompt starts with '-'; prefixing a space so it is "
+                "not parsed as a flag"
+            )
+            prompt = " " + prompt
+        cmd.append(prompt)
 
         return cmd
 
