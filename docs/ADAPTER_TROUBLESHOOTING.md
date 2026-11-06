@@ -1,7 +1,7 @@
 # Adapter Troubleshooting
 
 agent-yaml never speaks to a model directly — every task is one subprocess invocation of a CLI
-(`opencode`, `claude`, `gemini`, `qwen`, `codex`). Each adapter translates the same
+(`opencode`, `claude`, `qwen`, `codex`, `pi`, `vtcode`, `agy`). Each adapter translates the same
 `cli-agent-config` keys into that CLI's flags, and when a CLI changes its flags the adapter breaks in
 ways that look like workflow bugs. This page is the symptom → cause → fix guide.
 
@@ -38,7 +38,7 @@ agent-yaml validate tasks/my-workflow.yaml --cli-agent codex
 | Timeout kills a run mid-way | `cli-agent-config.timeout` is per task, and parallel loop workers share it. | Raise `timeout`, or split the task. |
 | `codex exec` fails outside a git repo | Codex refuses to run without one. | Already handled: the adapter always passes `--skip-git-repo-check`. |
 | Only one `additional-dirs` entry applies (codex) | Codex supports a single `-C`. | The adapter uses `additional-dirs[0]` and warns about the rest. |
-| Missing CLI at validate time | Not installed / wrong PATH. | `which opencode` / `claude` / `gemini` / `qwen` / `codex` / `pi`; install or adjust PATH. |
+| Missing CLI at validate time | Not installed / wrong PATH. | `which opencode` / `claude` / `qwen` / `codex` / `pi` / `vtcode` / `agy`; install or adjust PATH. |
 
 ---
 
@@ -142,7 +142,7 @@ from the matrix.
 | prompt | `--print PROMPT` |
 | `mcp-servers` | `--allowed-mcp-server-names …` — **not a Claude flag**, current `claude` rejects it (`agent_yaml/adapters/claude.py:104`) |
 
-### Gemini / Qwen
+### Qwen
 
 | Config | Emission |
 |--------|----------|
@@ -151,11 +151,41 @@ from the matrix.
 | `permissions: [x]` | `--approval-mode x` |
 | `mcp-servers` | `--allowed-mcp-server-names …` |
 | `extensions`, `checkpointing`, `screen-reader`, `telemetry` | matching flags |
-| `model` | Gemini passes through; Qwen translates `qwen3-coder` → `qwen3-coder-plus` |
-| `web-search` | Gemini: built-in, no flag; Qwen: `--tavily-api-key` from `search-api-key` |
+| `model` | translates `qwen3-coder` → `qwen3-coder-plus` |
+| `web-search` | `--tavily-api-key` from `search-api-key` |
 | `output-format: json` | `--output-format json` |
 | prompt | `-p PROMPT` |
-| `session-id` (Qwen), `mcp-config-file` (both) | **ignored with a warning** |
+| `session-id`, `mcp-config-file` | **ignored with a warning** |
+
+### vtcode
+
+| Config | Emission |
+|--------|----------|
+| *(always)* | `vtcode exec` |
+| `skip-confirmations: true` | `--dangerously-skip-permissions` |
+| `provider` / `model` | `--provider` / `--model` |
+| `output-format: json` | `--json` |
+| `security-level` | `--security-level strict|moderate|permissive` |
+| `max-tool-calls` | `--max-tool-calls N` |
+| `session-id` / `continue` | `--session-id` / `--continue` |
+| `debug: true` / `quiet: true` | `--verbose` / `--quiet` |
+| prompt | positional, after `--` |
+| `additional-dirs`, `mcp-servers`, `mcp-config-file` | **ignored with a warning** |
+
+`vtcode exec` needs `[automation.full_auto]` in the workspace `vtcode.toml` (`enabled = true` plus an
+`allowed_tools` allow-list), and non-interactive runs need `VTCODE_TRUST_WORKSPACE=full-auto`.
+
+### Antigravity
+
+| Config | Emission |
+|--------|----------|
+| *(always)* | `agy -p PROMPT` (headless print mode) |
+| `skip-confirmations: true` | `--mode auto` |
+| `model` / `effort` / `agent` | `--model` / `--effort low|medium|high` / `--agent` |
+| `output-format` | `--output-format text|json|stream-json` |
+| `session-id` / `continue` | `--conversation ID` / `--continue` |
+| `sandbox: true` | `--sandbox` |
+| `additional-dirs`, `mcp-servers`, `mcp-config-file` | **ignored with a warning** (see `~/.gemini/antigravity-cli/settings.json`) |
 
 ### Codex
 
@@ -246,5 +276,5 @@ cli-agent-config:
 
 Source of truth: `agent_yaml/adapters/*.py` (per-CLI translation), `agent_yaml/adapters/__init__.py` (registry),
 `agent_yaml/executor.py` (argv construction, timeouts), `AGENTS.md` (known-breaking flags).
-Related: `spec/ADAPTER_SPEC.md`, `examples/09-gemini.yaml`, `examples/10-qwen.yaml`,
-`examples/11-codex.yaml`.
+Related: `spec/ADAPTER_SPEC.md`, `examples/10-qwen.yaml`, `examples/11-codex.yaml`,
+`examples/40-pi.yaml`, `examples/41-vtcode.yaml`, `examples/42-antigravity.yaml`.

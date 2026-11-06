@@ -7,12 +7,13 @@ from unittest.mock import patch
 import pytest
 
 from agent_yaml.adapters import (
+    AntigravityAdapter,
     ClaudeAdapter,
     CLINotFoundError,
     CodexAdapter,
-    GeminiAdapter,
     OpenCodeAdapter,
     PiAdapter,
+    VTCodeAdapter,
     QwenAdapter,
     UnsupportedCLIError,
     get_adapter,
@@ -22,21 +23,23 @@ PROMPT = "Test prompt"
 
 ADAPTERS = {
     "claude": ClaudeAdapter,
-    "gemini": GeminiAdapter,
     "qwen": QwenAdapter,
     "codex": CodexAdapter,
     "opencode": OpenCodeAdapter,
     "pi": PiAdapter,
+    "vtcode": VTCodeAdapter,
+    "antigravity": AntigravityAdapter,
 }
 
 # Executables each adapter looks for on PATH (Claude takes either, preferring claude-code).
 EXECUTABLES = {
     ClaudeAdapter: ("claude-code", "claude"),
-    GeminiAdapter: ("gemini",),
     QwenAdapter: ("qwen",),
     CodexAdapter: ("codex",),
     OpenCodeAdapter: ("opencode",),
     PiAdapter: ("pi",),
+    VTCodeAdapter: ("vtcode",),
+    AntigravityAdapter: ("agy",),
 }
 ALL_EXECUTABLES = tuple(name for names in EXECUTABLES.values() for name in names)
 
@@ -83,11 +86,12 @@ MINIMAL_COMMANDS = [
     pytest.param(
         ClaudeAdapter, ["claude-code", "--tools", "default", "--print", PROMPT], id="claude"
     ),
-    pytest.param(GeminiAdapter, ["gemini", "-p", PROMPT], id="gemini"),
-    pytest.param(QwenAdapter, ["qwen", "-p", PROMPT], id="qwen"),
+        pytest.param(QwenAdapter, ["qwen", "-p", PROMPT], id="qwen"),
     pytest.param(CodexAdapter, ["codex", "exec", "--skip-git-repo-check", PROMPT], id="codex"),
     pytest.param(OpenCodeAdapter, ["opencode", "run", "--standalone", "--", PROMPT], id="opencode"),
     pytest.param(PiAdapter, ["pi", "-p", "--no-session", "--", PROMPT], id="pi"),
+    pytest.param(VTCodeAdapter, ["vtcode", "exec", "--", PROMPT], id="vtcode"),
+    pytest.param(AntigravityAdapter, ["agy", "-p", PROMPT], id="antigravity"),
 ]
 
 CANONICAL_COMMANDS = [
@@ -124,43 +128,7 @@ CANONICAL_COMMANDS = [
         ],
         id="claude",
     ),
-    pytest.param(
-        GeminiAdapter,
-        {
-            "skip-confirmations": True,
-            "additional-dirs": ["/tmp", "/var/tmp"],
-            "model": "gemini-2.5-pro",
-            "debug": True,
-            "output-format": "json",
-            "mcp-servers": ["notion", "linear"],
-            "permissions": ["plan"],
-            "extensions": ["ext1", "ext2"],
-            "checkpointing": True,
-            "screen-reader": True,
-            "telemetry": True,
-            "web-search": True,
-            "raw-args": ["--verbose"],
-            "timeout": 3600,
-        },
-        [
-            "gemini",
-            "--yolo",
-            *["--include-directories", "/tmp", "/var/tmp"],
-            *["--model", "gemini-2.5-pro"],
-            "--debug",
-            *["--output-format", "json"],
-            *["--allowed-mcp-server-names", "notion", "linear"],
-            *["--approval-mode", "plan"],
-            *["--extensions", "ext1", "ext2"],
-            "--checkpointing",
-            "--telemetry",
-            "--screen-reader",
-            "--verbose",
-            *["-p", PROMPT],
-        ],
-        id="gemini",
-    ),
-    pytest.param(
+        pytest.param(
         QwenAdapter,
         {
             "skip-confirmations": True,
@@ -266,11 +234,12 @@ CANONICAL_COMMANDS = [
 
 PROMPT_TAILS = [
     pytest.param(ClaudeAdapter, ["--print", PROMPT], id="claude"),
-    pytest.param(GeminiAdapter, ["-p", PROMPT], id="gemini"),
-    pytest.param(QwenAdapter, ["-p", PROMPT], id="qwen"),
+        pytest.param(QwenAdapter, ["-p", PROMPT], id="qwen"),
     pytest.param(CodexAdapter, [PROMPT], id="codex"),
     pytest.param(OpenCodeAdapter, ["--", PROMPT], id="opencode"),
     pytest.param(PiAdapter, ["--", PROMPT], id="pi"),
+    pytest.param(VTCodeAdapter, ["--", PROMPT], id="vtcode"),
+    pytest.param(AntigravityAdapter, ["-p", PROMPT], id="antigravity"),
 ]
 
 
@@ -304,11 +273,11 @@ class TestCommandShape:
 
 SKIP_CONFIRMATIONS_FLAGS = [
     pytest.param(ClaudeAdapter, "--dangerously-skip-permissions", id="claude"),
-    pytest.param(GeminiAdapter, "--yolo", id="gemini"),
-    pytest.param(QwenAdapter, "--yolo", id="qwen"),
+        pytest.param(QwenAdapter, "--yolo", id="qwen"),
     pytest.param(CodexAdapter, "--full-auto", id="codex"),
     pytest.param(OpenCodeAdapter, "--auto", id="opencode"),
     pytest.param(PiAdapter, "--approve", id="pi"),
+    pytest.param(VTCodeAdapter, "--dangerously-skip-permissions", id="vtcode"),
 ]
 
 ADDITIONAL_DIRS_FLAGS = [
@@ -318,13 +287,7 @@ ADDITIONAL_DIRS_FLAGS = [
         ["--add-dir=/tmp", "--add-dir=/var/tmp"],
         id="claude",
     ),
-    pytest.param(
-        GeminiAdapter,
-        ["/tmp", "/var/tmp"],
-        ["--include-directories", "/tmp", "/var/tmp"],
-        id="gemini",
-    ),
-    pytest.param(
+        pytest.param(
         QwenAdapter,
         ["/tmp", "/var/tmp"],
         ["--include-directories", "/tmp", "/var/tmp"],
@@ -335,8 +298,7 @@ ADDITIONAL_DIRS_FLAGS = [
 
 MODEL_FLAGS = [
     pytest.param(ClaudeAdapter, "custom-model-name", "custom-model-name", id="claude-passthrough"),
-    pytest.param(GeminiAdapter, "gemini-2.5-pro", "gemini-2.5-pro", id="gemini-passthrough"),
-    pytest.param(QwenAdapter, "custom-qwen-model", "custom-qwen-model", id="qwen-passthrough"),
+        pytest.param(QwenAdapter, "custom-qwen-model", "custom-qwen-model", id="qwen-passthrough"),
     pytest.param(CodexAdapter, "gpt-5-codex", "gpt-5-codex", id="codex-passthrough"),
     pytest.param(
         OpenCodeAdapter,
@@ -345,6 +307,8 @@ MODEL_FLAGS = [
         id="opencode-passthrough",
     ),
     pytest.param(PiAdapter, "zai/glm-5.1", "zai/glm-5.1", id="pi-passthrough"),
+    pytest.param(VTCodeAdapter, "deepseek-flash", "deepseek-flash", id="vtcode-passthrough"),
+    pytest.param(AntigravityAdapter, "gemini-4-argon-high", "gemini-4-argon-high", id="antigravity-passthrough"),
     pytest.param(PiAdapter, "zai/glm-5.1:high", "zai/glm-5.1:high", id="pi-thinking-suffix"),
     pytest.param(
         ClaudeAdapter, "sonnet-4.5", "claude-sonnet-4-5-20250929", id="claude-maps-sonnet-4.5"
@@ -367,30 +331,32 @@ MODEL_FLAGS = [
 
 DEBUG_FLAGS = [
     pytest.param(ClaudeAdapter, ["--debug"], id="claude"),
-    pytest.param(GeminiAdapter, ["--debug"], id="gemini"),
-    pytest.param(QwenAdapter, ["--debug"], id="qwen"),
+        pytest.param(QwenAdapter, ["--debug"], id="qwen"),
     pytest.param(CodexAdapter, ["-c", "debug=true"], id="codex"),
     pytest.param(OpenCodeAdapter, ["--print-logs"], id="opencode"),
     pytest.param(PiAdapter, ["--verbose"], id="pi"),
+    pytest.param(VTCodeAdapter, ["--verbose"], id="vtcode"),
 ]
 
 JSON_OUTPUT_FLAGS = [
     pytest.param(ClaudeAdapter, ["--output-format", "json"], id="claude"),
-    pytest.param(GeminiAdapter, ["--output-format", "json"], id="gemini"),
-    pytest.param(OpenCodeAdapter, ["--format", "json"], id="opencode"),
+        pytest.param(OpenCodeAdapter, ["--format", "json"], id="opencode"),
     pytest.param(PiAdapter, ["--mode", "json"], id="pi"),
+    pytest.param(VTCodeAdapter, ["--json"], id="vtcode"),
+    pytest.param(AntigravityAdapter, ["--output-format", "json"], id="antigravity"),
 ]
 
 SESSION_ID_FLAGS = [
     pytest.param(ClaudeAdapter, "--session-id", id="claude"),
     pytest.param(OpenCodeAdapter, "--session", id="opencode"),
     pytest.param(PiAdapter, "--session-id", id="pi"),
+    pytest.param(VTCodeAdapter, "--session-id", id="vtcode"),
+    pytest.param(AntigravityAdapter, "--conversation", id="antigravity"),
 ]
 
 PERMISSION_FLAGS = [
     pytest.param(ClaudeAdapter, "plan", ["--permission-mode", "plan"], id="claude"),
-    pytest.param(GeminiAdapter, "plan", ["--approval-mode", "plan"], id="gemini"),
-    pytest.param(QwenAdapter, "plan", ["--approval-mode", "plan"], id="qwen"),
+        pytest.param(QwenAdapter, "plan", ["--approval-mode", "plan"], id="qwen"),
     pytest.param(QwenAdapter, "auto_edit", ["--approval-mode", "auto_edit"], id="qwen-auto_edit"),
     pytest.param(CodexAdapter, "on-failure", ["-a", "on-failure"], id="codex"),
     pytest.param(OpenCodeAdapter, "plan", ["--agent", "plan"], id="opencode"),
@@ -407,8 +373,7 @@ WEB_SEARCH_FLAGS = [
 ]
 
 WEB_SEARCH_WITHOUT_FLAGS = [
-    pytest.param(GeminiAdapter, {"web-search": True}, id="gemini-built-in"),
-    pytest.param(QwenAdapter, {"web-search": True}, id="qwen-without-api-key"),
+        pytest.param(QwenAdapter, {"web-search": True}, id="qwen-without-api-key"),
     pytest.param(QwenAdapter, {"search-api-key": "sk-tavily-12345"}, id="qwen-key-without-search"),
 ]
 
@@ -449,7 +414,7 @@ class TestSharedSettings:
         )
 
     @pytest.mark.parametrize(
-        "adapter_cls", [ClaudeAdapter, GeminiAdapter, QwenAdapter], ids=["claude", "gemini", "qwen"]
+        "adapter_cls", [ClaudeAdapter, QwenAdapter], ids=["claude", "qwen"]
     )
     def test_mcp_servers(self, adapter_cls):
         cmd = build(adapter_cls, {"mcp-servers": ["notion", "linear", "tavily"]})
@@ -473,21 +438,7 @@ class TestSharedSettings:
 
 
 UNSUPPORTED_SETTINGS = [
-    pytest.param(
-        GeminiAdapter,
-        "session-id",
-        "my-session-123",
-        "Gemini does not support session-id configuration",
-        id="gemini-session-id",
-    ),
-    pytest.param(
-        GeminiAdapter,
-        "mcp-config-file",
-        "/path/to/mcp-config.json",
-        "Gemini does not support mcp-config-file configuration",
-        id="gemini-mcp-config-file",
-    ),
-    pytest.param(
+            pytest.param(
         QwenAdapter,
         "output-format",
         "json",
@@ -566,12 +517,7 @@ class TestUnsupportedSettings:
     @pytest.mark.parametrize(
         "adapter_cls, config",
         [
-            pytest.param(
-                GeminiAdapter,
-                {"session-id": "s-1", "mcp-config-file": "/path/to/mcp.json"},
-                id="gemini",
-            ),
-            pytest.param(
+                        pytest.param(
                 QwenAdapter,
                 {
                     "output-format": "json",
@@ -684,10 +630,10 @@ class TestClaudeAdapter:
         assert has_tokens(cmd, "--mcp-config", "/path/to/mcp-config.json")
 
 
-class TestGeminiAndQwenAdapters:
-    """Gemini CLI flags that the Qwen CLI (a Gemini fork) shares."""
+class TestQwenFlagFamily:
+    """Flags the Qwen CLI (a Gemini fork) supports."""
 
-    @pytest.mark.parametrize("adapter_cls", [GeminiAdapter, QwenAdapter], ids=["gemini", "qwen"])
+    @pytest.mark.parametrize("adapter_cls", [QwenAdapter], ids=["qwen"])
     @pytest.mark.parametrize(
         "config, tokens",
         [
@@ -916,13 +862,12 @@ class TestGetAdapter:
 
         message = str(exc_info.value)
         assert f"Unsupported CLI agent: '{name}'" in message
-        assert "Supported agents are: claude, codex, gemini, opencode, pi, qwen" in message
+        assert "Supported agents are: antigravity, claude, codex, opencode, pi, qwen, vtcode" in message
 
     @pytest.mark.parametrize(
         "name, hint, which_command",
         [
             pytest.param("claude", "claude-code or claude", "which claude-code", id="claude"),
-            pytest.param("gemini", "gemini", "which gemini", id="gemini"),
             pytest.param("qwen", "qwen", "which qwen", id="qwen"),
             pytest.param("codex", "codex", "which codex", id="codex"),
             pytest.param("opencode", "opencode", "which opencode", id="opencode"),
@@ -1011,3 +956,64 @@ class TestPiAdapter:
 
     def test_adapter_requests_empty_stdin(self):
         assert PiAdapter.needs_empty_stdin is True
+
+
+class TestVTCodeAdapter:
+    """vtcode-specific mapping: security level, tool budget, quiet, ignored options."""
+
+    def test_security_level(self):
+        cmd = build(VTCodeAdapter, {"security-level": "permissive"})
+
+        assert has_tokens(cmd, "--security-level", "permissive")
+
+    def test_max_tool_calls(self):
+        cmd = build(VTCodeAdapter, {"max-tool-calls": 25})
+
+        assert has_tokens(cmd, "--max-tool-calls", "25")
+
+    def test_quiet_and_continue(self):
+        cmd = build(VTCodeAdapter, {"quiet": True, "continue": True})
+
+        assert "--quiet" in cmd
+        assert "--continue" in cmd
+
+    @pytest.mark.parametrize("option", ["additional-dirs", "mcp-servers", "mcp-config-file"])
+    def test_unsupported_options_warn_and_are_dropped(self, option):
+        cmd, warnings = build_with_warnings(VTCodeAdapter, {option: ["x"]})
+
+        assert cmd == build(VTCodeAdapter, {})
+        assert any(option in message for message in warnings)
+
+    def test_unknown_output_format_warns(self):
+        cmd, warnings = build_with_warnings(VTCodeAdapter, {"output-format": "stream-json"})
+
+        assert "--json" not in cmd
+        assert any("stream-json" in message for message in warnings)
+
+
+class TestAntigravityAdapter:
+    """antigravity-specific mapping: mode, effort, agent, sandbox."""
+
+    def test_skip_confirmations_sets_auto_mode(self):
+        assert has_tokens(build(AntigravityAdapter, {"skip-confirmations": True}), "--mode", "auto")
+
+    def test_effort_and_agent(self):
+        cmd = build(AntigravityAdapter, {"effort": "high", "agent": "reviewer"})
+
+        assert has_tokens(cmd, "--effort", "high")
+        assert has_tokens(cmd, "--agent", "reviewer")
+
+    def test_sandbox(self):
+        assert "--sandbox" in build(AntigravityAdapter, {"sandbox": True})
+
+    @pytest.mark.parametrize("option", ["additional-dirs", "mcp-servers", "mcp-config-file"])
+    def test_unsupported_options_warn_and_are_dropped(self, option):
+        cmd, warnings = build_with_warnings(AntigravityAdapter, {option: ["x"]})
+
+        assert cmd == build(AntigravityAdapter, {})
+        assert any(option in message for message in warnings)
+
+    def test_prompt_is_the_value_of_dash_p(self):
+        cmd = build(AntigravityAdapter, {}, "-starts-with-a-dash")
+
+        assert cmd[-2:] == ["-p", "-starts-with-a-dash"]

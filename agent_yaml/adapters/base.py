@@ -24,7 +24,7 @@ class BaseAdapter(ABC):
         Initialize adapter.
 
         Args:
-            tool_name: Name of the CLI tool (claude, gemini, qwen, codex)
+            tool_name: Name of the CLI tool (claude, qwen, codex, pi, vtcode, antigravity)
             tool_config: Optional tool-specific configuration
         """
         self.tool_name = tool_name

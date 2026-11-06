@@ -1,0 +1,25 @@
+# Example 41: vtcode CLI agent
+# Tests: cli-agent: vtcode with headless exec
+# Requires [automation.full_auto] in the workspace vtcode.toml and a provider key.
+
+directory: /tmp
+
+cli-agent: vtcode
+cli-agent-config:
+  provider: deepseek
+  model: deepseek-flash
+  skip-confirmations: true
+  timeout: 600
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-41"
+
+task:
+  - setup:
+      prompt: |
+        Create {{output-dir}} and write {{output-dir}}/setup.log with:
+        "vtcode adapter test
+        User: {{user}}
+        Timestamp: {{datetime}}"
+      validate:
+        - file-exists: "{{output-dir}}/setup.log"

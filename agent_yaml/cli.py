@@ -901,7 +901,7 @@ def main():
         "--directory", "-d", help="Override the working directory for the CLI agent"
     )
     run_parser.add_argument(
-        "--cli-agent", help="Override the workflow's cli-agent (opencode, claude, gemini, qwen, codex, pi)"
+        "--cli-agent", help="Override the workflow's cli-agent (opencode, claude, qwen, codex, pi, vtcode, antigravity)"
     )
     run_parser.add_argument(
         "--model", help="Model for every task, overriding workflow and task cli-agent-config"

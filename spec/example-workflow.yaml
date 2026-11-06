@@ -1,7 +1,7 @@
 # expandable directory to start the agent in
 directory: "~/projects/example-repo"
 
-# Specify which AI CLI tool to use (claude, openai, gemini)
+# Specify which AI CLI tool to use (claude, opencode, qwen, codex, pi, vtcode, antigravity)
 cli-agent: "claude"
 
 # CLI-specific configuration (translated by adapter layer)

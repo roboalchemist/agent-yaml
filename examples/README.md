@@ -3,7 +3,6 @@
 Runnable workflows covering every feature. Every file here **dry-runs clean in the test suite**
 (`tests/integration/test_examples.py`), so they are the canonical usage reference.
 
-All examples use `cli-agent: opencode` except the provider demos (`09-gemini`, `10-qwen`, `11-codex`).
 `directory: /tmp` combined with `template-variables` keeps each run's output under
 `{{directory}}/agent-yaml-test-NN`, so runs do not collide.
 
@@ -77,7 +76,6 @@ The negative examples are expected to exit non-zero; that is the point.
 | `39-when-conditions.yaml` | `when` expressions (`and`, `or`, `not`, comparisons) |
 | `37-environment-variables.yaml` | workflow vs task `env:` precedence |
 | `38-env-interpolation.yaml` | `{{env.VAR}}` interpolation |
-| `09-gemini.yaml` | `cli-agent: gemini` |
 | `10-qwen.yaml` | `cli-agent: qwen` |
 | `11-codex.yaml` | `cli-agent: codex` |
 

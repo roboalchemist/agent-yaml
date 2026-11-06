@@ -10,7 +10,7 @@ The configuration is CLI-agnostic and uses an adapter layer to translate generic
 
 ```yaml
 directory: <string>
-cli-agent: <string>           # Which AI CLI to use (claude, gemini, qwen, codex, opencode, pi)
+cli-agent: <string>           # Which AI CLI to use (opencode, claude, qwen, codex, pi, vtcode, antigravity)
 cli-agent-config: <object>    # CLI-specific configuration
 on-error: <string>            # Error handling strategy (fail, continue, skip)
 template-variables: <object>
@@ -38,7 +38,6 @@ Specifies which AI CLI tool to use for execution.
 
 **Supported Values:**
 - `claude` - Claude CLI (claude-code)
-- `gemini` - Gemini CLI
 - `qwen` - Qwen CLI
 - `codex` - OpenAI Codex CLI
 
@@ -1034,7 +1033,7 @@ For each task, the meta-agent follows this process:
 
 ### Adapter Responsibility
 
-Each adapter (claude, gemini, qwen, codex) is responsible for:
+Each adapter (opencode, claude, qwen, codex, pi, vtcode, antigravity) is responsible for:
 
 **Prompt Delivery:**
 - How to pass prompts to the CLI tool (stdin, command argument, temp file, etc.)
@@ -1407,7 +1406,7 @@ template-variables:
 ```typescript
 interface WorkflowConfig {
   directory: string;
-  "cli-agent"?: "claude" | "gemini" | "qwen" | "codex";
+  "cli-agent"?: "opencode" | "claude" | "qwen" | "codex" | "pi" | "vtcode" | "antigravity";
   "cli-agent-config"?: CliConfig;
   "on-error"?: "fail" | "continue" | "skip";
   "template-variables": Record<string, string>;

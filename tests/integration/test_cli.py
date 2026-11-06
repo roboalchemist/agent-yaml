@@ -19,7 +19,7 @@ from agent_yaml.cli import main, parse_var_overrides, run_workflow
 from agent_yaml.executor import ExecutionError
 from tests.support.helpers import bash_prompt, write_workflow
 
-ALLOWED_AGENTS = "['opencode', 'claude', 'gemini', 'qwen', 'codex', 'pi']"
+ALLOWED_AGENTS = "['opencode', 'claude', 'qwen', 'codex', 'pi', 'vtcode', 'antigravity']"
 MODEL = "openai/gpt-4o-mini"
 
 
@@ -587,7 +587,7 @@ class TestEnvFiles:
 class TestRunFlags:
     def test_cli_agent_flag_replaces_the_workflow_agent(self, tmp_path, fake_opencode, monkeypatch):
         wf = make_workflow(
-            tmp_path, [{"t": {"prompt": bash_prompt("touch ran.txt")}}], agent="gemini"
+            tmp_path, [{"t": {"prompt": bash_prompt("touch ran.txt")}}], agent="qwen"
         )
 
         assert run_main(monkeypatch, "run", wf, "--cli-agent", "opencode") == 0
@@ -702,7 +702,7 @@ class TestValidateCommand:
         self, tmp_path, fake_opencode, monkeypatch, capsys
     ):
         wf = make_workflow(
-            tmp_path, [{"t": {"prompt": bash_prompt("touch ran.txt")}}], agent="gemini"
+            tmp_path, [{"t": {"prompt": bash_prompt("touch ran.txt")}}], agent="qwen"
         )
 
         assert run_main(monkeypatch, "validate", "--cli-agent", "opencode", wf) == 0
@@ -883,7 +883,7 @@ class TestParseVarOverrides:
 class TestModuleEntryPoint:
     def test_python_m_src_cli_runs_a_workflow(self, tmp_path, fake_opencode):
         wf = make_workflow(
-            tmp_path, [{"t": {"prompt": bash_prompt("echo hello > hello.txt")}}], agent="gemini"
+            tmp_path, [{"t": {"prompt": bash_prompt("echo hello > hello.txt")}}], agent="qwen"
         )
 
         result = subprocess.run(

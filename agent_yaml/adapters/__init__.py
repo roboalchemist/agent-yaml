@@ -2,16 +2,17 @@
 CLI adapter modules for different AI agent tools.
 
 Provides tool-specific adapters that translate generic workflow configurations
-into tool-specific CLI invocations for OpenCode, Claude, Gemini, Qwen, Codex, and pi.
+into tool-specific CLI invocations for OpenCode, Claude, Qwen, Codex, pi, vtcode, and Antigravity.
 """
 
+from .antigravity import AntigravityAdapter
 from .base import BaseAdapter
 from .claude import ClaudeAdapter
 from .codex import CodexAdapter
-from .gemini import GeminiAdapter
 from .opencode import OpenCodeAdapter
 from .pi import PiAdapter
 from .qwen import QwenAdapter
+from .vtcode import VTCodeAdapter
 
 
 class UnsupportedCLIError(Exception):
@@ -31,7 +32,7 @@ def get_adapter(cli_agent_name: str) -> BaseAdapter:
     Factory function to get the appropriate adapter for a CLI agent.
 
     Args:
-        cli_agent_name: Name of the CLI agent (opencode, claude, gemini, qwen, codex, pi)
+        cli_agent_name: Name of the CLI agent (opencode, claude, qwen, codex, pi, vtcode, antigravity)
 
     Returns:
         BaseAdapter: Instance of the appropriate adapter class
@@ -50,10 +51,11 @@ def get_adapter(cli_agent_name: str) -> BaseAdapter:
     adapter_map = {
         "opencode": OpenCodeAdapter,
         "claude": ClaudeAdapter,
-        "gemini": GeminiAdapter,
         "qwen": QwenAdapter,
         "codex": CodexAdapter,
         "pi": PiAdapter,
+        "vtcode": VTCodeAdapter,
+        "antigravity": AntigravityAdapter,
     }
 
     # Check if CLI agent is supported
@@ -86,12 +88,13 @@ def get_adapter(cli_agent_name: str) -> BaseAdapter:
 
 __all__ = [
     "BaseAdapter",
+    "AntigravityAdapter",
     "ClaudeAdapter",
-    "GeminiAdapter",
     "QwenAdapter",
     "CodexAdapter",
     "OpenCodeAdapter",
     "PiAdapter",
+    "VTCodeAdapter",
     "UnsupportedCLIError",
     "CLINotFoundError",
     "get_adapter",

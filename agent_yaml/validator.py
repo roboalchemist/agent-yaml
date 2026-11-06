@@ -29,15 +29,15 @@ class SchemaValidator:
     Checks:
     - Required fields (directory, task)
     - Optional field types (cli-agent, cli-agent-config, on-error, etc.)
-    - Field value constraints (cli-agent must be opencode/claude/gemini/qwen/codex)
+    - Field value constraints (cli-agent must be a supported adapter)
     """
 
-    VALID_CLI_AGENTS = ["opencode", "claude", "gemini", "qwen", "codex", "pi"]
+    VALID_CLI_AGENTS = ["opencode", "claude", "qwen", "codex", "pi", "vtcode", "antigravity"]
     VALID_ON_ERROR_VALUES = ["fail", "continue", "skip"]
 
-    # pi adapter options. Anything not listed here is rejected, so a typo or a
+    # Adapter options. Anything not listed here is rejected, so a typo or a
     # config key copied from another adapter fails at validate time instead of
-    # producing a command pi rejects at run time.
+    # producing a command the CLI rejects at run time.
     _agent = "claude"
     PI_THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
     PI_OUTPUT_FORMATS = ["text", "json", "rpc"]
@@ -63,66 +63,144 @@ class SchemaValidator:
         "mcp-config-file": "string (ignored by pi)",
     }
 
-    def _validate_pi_config(self, config, where="cli-agent-config"):
-        """Validate pi adapter options: known keys, types, and enumerated values."""
+    VTCODE_OPTION_SPEC = {
+        "model": "string",
+        "provider": "string",
+        "session-id": "string",
+        "output-format": "string",
+        "security-level": "string",
+        "max-tool-calls": "positive integer",
+        "skip-confirmations": "boolean",
+        "continue": "boolean",
+        "debug": "boolean",
+        "quiet": "boolean",
+        "timeout": "positive number",
+        "raw-args": "list of strings",
+        "additional-dirs": "list (ignored by vtcode)",
+        "mcp-servers": "list (ignored by vtcode)",
+        "mcp-config-file": "string (ignored by vtcode)",
+    }
+
+    ANTIGRAVITY_OPTION_SPEC = {
+        "model": "string",
+        "effort": "string",
+        "agent": "string",
+        "session-id": "string",
+        "output-format": "string",
+        "skip-confirmations": "boolean",
+        "continue": "boolean",
+        "sandbox": "boolean",
+        "timeout": "positive number",
+        "raw-args": "list of strings",
+        "additional-dirs": "list (ignored by agy)",
+        "mcp-servers": "list (ignored by agy)",
+        "mcp-config-file": "string (ignored by agy)",
+    }
+
+    AGENT_OPTION_SPECS = {
+        "pi": PI_OPTION_SPEC,
+        "vtcode": VTCODE_OPTION_SPEC,
+        "antigravity": ANTIGRAVITY_OPTION_SPEC,
+    }
+    AGENT_STRING_OPTIONS = {
+        "pi": ["model", "provider", "thinking", "title", "session-id",
+               "output-format", "mcp-config-file"],
+        "vtcode": ["model", "provider", "session-id", "output-format",
+                   "security-level", "mcp-config-file"],
+        "antigravity": ["model", "effort", "agent", "session-id",
+                        "output-format", "mcp-config-file"],
+    }
+    AGENT_BOOL_OPTIONS = {
+        "pi": ["skip-confirmations", "no-tools", "continue", "session",
+               "debug", "no-extensions"],
+        "vtcode": ["skip-confirmations", "continue", "debug", "quiet"],
+        "antigravity": ["skip-confirmations", "continue", "sandbox"],
+    }
+    AGENT_STRING_OR_LIST_OPTIONS = {
+        "pi": ["tools", "exclude-tools"],
+        "vtcode": [],
+        "antigravity": [],
+    }
+    AGENT_ENUM_OPTIONS = {
+        "pi": {"thinking": PI_THINKING_LEVELS, "output-format": PI_OUTPUT_FORMATS},
+        "vtcode": {
+            "output-format": ["text", "json"],
+            "security-level": ["strict", "moderate", "permissive"],
+        },
+        "antigravity": {
+            "output-format": ["text", "json", "stream-json"],
+            "effort": ["low", "medium", "high"],
+        },
+    }
+
+    def _validate_agent_config(self, agent, config, where="cli-agent-config"):
+        """Validate adapter options for the active agent: keys, types, enum values."""
+        spec = self.AGENT_OPTION_SPECS[agent]
 
         def fail(message):
             raise ValidationError(
                 "{}\n\nContext: {}\nAllowed options: {}".format(
-                    message, where, ", ".join(sorted(self.PI_OPTION_SPEC))
+                    message, where, ", ".join(sorted(spec))
                 )
             )
 
         for key in config:
-            if key not in self.PI_OPTION_SPEC:
-                fail("Unknown pi option '{}'".format(key))
+            if key not in spec:
+                fail("Unknown {} option '{}'".format(agent, key))
 
-        for key in ("model", "provider", "thinking", "title", "session-id",
-                    "output-format", "mcp-config-file"):
+        for key in self.AGENT_STRING_OPTIONS[agent]:
             if key in config and not isinstance(config[key], str):
-                fail("pi option '{}' must be a string, got {}".format(
-                    key, type(config[key]).__name__))
+                fail("{} option '{}' must be a string, got {}".format(
+                    agent, key, type(config[key]).__name__))
 
-        for key in ("skip-confirmations", "no-tools", "continue", "session",
-                    "debug", "no-extensions"):
+        for key in self.AGENT_BOOL_OPTIONS[agent]:
             if key in config and not isinstance(config[key], bool):
-                fail("pi option '{}' must be a boolean, got {}".format(
-                    key, type(config[key]).__name__))
+                fail("{} option '{}' must be a boolean, got {}".format(
+                    agent, key, type(config[key]).__name__))
 
         if "timeout" in config:
             value = config["timeout"]
             if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
-                fail("pi option 'timeout' must be a positive number, got {!r}".format(value))
+                fail("{} option 'timeout' must be a positive number, got {!r}".format(agent, value))
+
+        if "max-tool-calls" in config:
+            value = config["max-tool-calls"]
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                fail("{} option 'max-tool-calls' must be a positive integer, got {!r}".format(
+                    agent, value))
 
         for key in ("raw-args", "additional-dirs", "mcp-servers"):
             if key in config:
                 value = config[key]
                 if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
-                    fail("pi option '{}' must be a list of strings, got {!r}".format(key, value))
+                    fail("{} option '{}' must be a list of strings, got {!r}".format(
+                        agent, key, value))
 
-        for key in ("tools", "exclude-tools"):
+        for key in self.AGENT_STRING_OR_LIST_OPTIONS[agent]:
             if key in config:
                 value = config[key]
                 if isinstance(value, str):
                     if not value.strip():
-                        fail("pi option '{}' must not be empty".format(key))
+                        fail("{} option '{}' must not be empty".format(agent, key))
                 elif isinstance(value, list):
                     if not all(isinstance(v, str) and v.strip() for v in value):
-                        fail("pi option '{}' list entries must be non-empty strings".format(key))
+                        fail("{} option '{}' list entries must be non-empty strings".format(
+                            agent, key))
                 else:
-                    fail("pi option '{}' must be a string or list of strings, got {}".format(
-                        key, type(value).__name__))
+                    fail("{} option '{}' must be a string or list of strings, got {}".format(
+                        agent, key, type(value).__name__))
 
-        if "thinking" in config and config["thinking"] not in self.PI_THINKING_LEVELS:
-            fail("pi option 'thinking' must be one of {}, got '{}'".format(
-                self.PI_THINKING_LEVELS, config["thinking"]))
-
-        if "output-format" in config and config["output-format"] not in self.PI_OUTPUT_FORMATS:
-            fail("pi option 'output-format' must be one of {}, got '{}'".format(
-                self.PI_OUTPUT_FORMATS, config["output-format"]))
+        for key, allowed in self.AGENT_ENUM_OPTIONS[agent].items():
+            if key in config and config[key] not in allowed:
+                fail("{} option '{}' must be one of {}, got '{}'".format(
+                    agent, key, allowed, config[key]))
 
         if "session-id" in config and not config["session-id"].strip():
-            fail("pi option 'session-id' must not be empty")
+            fail("{} option 'session-id' must not be empty".format(agent))
+
+    def _validate_pi_config(self, config, where="cli-agent-config"):
+        """Backward-compatible wrapper for the pi option validator."""
+        self._validate_agent_config("pi", config, where)
 
     def validate_schema(self, workflow_dict):
         """
@@ -198,8 +276,11 @@ class SchemaValidator:
         # Adapter-specific option validation. pi options are enumerated, so an
         # option copied from another adapter fails here rather than at run time.
         self._agent = workflow_dict.get("cli-agent", "claude")
-        if self._agent == "pi" and isinstance(workflow_dict.get("cli-agent-config"), dict):
-            self._validate_pi_config(workflow_dict["cli-agent-config"])
+        if (
+            self._agent in self.AGENT_OPTION_SPECS
+            and isinstance(workflow_dict.get("cli-agent-config"), dict)
+        ):
+            self._validate_agent_config(self._agent, workflow_dict["cli-agent-config"])
 
         # Validate optional field: on-error
         if "on-error" in workflow_dict:
@@ -314,8 +395,12 @@ class SchemaValidator:
                         f"got {type(task_def).__name__}"
                     )
 
-                if self._agent == "pi" and isinstance(task_def.get("cli-agent-config"), dict):
-                    self._validate_pi_config(
+                if (
+                    self._agent in self.AGENT_OPTION_SPECS
+                    and isinstance(task_def.get("cli-agent-config"), dict)
+                ):
+                    self._validate_agent_config(
+                        self._agent,
                         task_def["cli-agent-config"],
                         "cli-agent-config for task '{}' at {}[{}]".format(task_name, path, index),
                     )

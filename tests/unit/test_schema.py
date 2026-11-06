@@ -109,7 +109,7 @@ class TestOptionalFields:
         wf = workflow(name="JSON loop", description="Loops over the users file")
         assert validate_workflow(wf) is True
 
-    @pytest.mark.parametrize("agent", ["opencode", "claude", "gemini", "qwen", "codex"])
+    @pytest.mark.parametrize("agent", ["opencode", "claude", "qwen", "codex", "pi", "vtcode", "antigravity"])
     def test_supported_cli_agents(self, agent):
         assert validate_workflow(workflow(cli_agent=agent)) is True
 

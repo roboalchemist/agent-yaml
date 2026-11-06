@@ -124,3 +124,55 @@ def test_live_matrix_covers_every_validated_option():
         covered.update(case.config)
 
     assert covered == set(SchemaValidator.PI_OPTION_SPEC)
+
+
+@pytest.mark.parametrize(
+    "agent, config, expected",
+    [
+        ("vtcode", {"security-level": "yolo"}, "vtcode option 'security-level' must be one of"),
+        ("vtcode", {"max-tool-calls": 0}, "vtcode option 'max-tool-calls' must be a positive integer"),
+        ("vtcode", {"max-tool-calls": True}, "vtcode option 'max-tool-calls' must be a positive integer"),
+        ("vtcode", {"quiet": "yes"}, "vtcode option 'quiet' must be a boolean"),
+        ("vtcode", {"nope": 1}, "Unknown vtcode option 'nope'"),
+        ("antigravity", {"effort": "max"}, "antigravity option 'effort' must be one of"),
+        ("antigravity", {"output-format": "xml"}, "antigravity option 'output-format' must be one of"),
+        ("antigravity", {"sandbox": "yes"}, "antigravity option 'sandbox' must be a boolean"),
+        ("antigravity", {"nope": 1}, "Unknown antigravity option 'nope'"),
+    ],
+)
+def test_invalid_vtcode_and_antigravity_options_are_rejected(agent, config, expected):
+    with pytest.raises(ValidationError) as exc_info:
+        validate(workflow(config, agent=agent))
+
+    assert expected in str(exc_info.value)
+
+
+def test_valid_vtcode_and_antigravity_configs_pass():
+    validate(
+        workflow(
+            {
+                "provider": "deepseek",
+                "model": "deepseek-flash",
+                "security-level": "permissive",
+                "max-tool-calls": 30,
+                "quiet": True,
+            },
+            agent="vtcode",
+        )
+    )
+    validate(
+        workflow(
+            {
+                "model": "gemini-4-argon-high",
+                "effort": "high",
+                "output-format": "stream-json",
+                "sandbox": True,
+            },
+            agent="antigravity",
+        )
+    )
+
+
+def test_gemini_is_no_longer_supported():
+    with pytest.raises(ValidationError):
+        validate(workflow(None, agent="gemini"))

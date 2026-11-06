@@ -1,0 +1,21 @@
+# Example 42: Antigravity CLI agent
+# Tests: cli-agent: antigravity (agy) headless print mode
+
+directory: /tmp
+
+cli-agent: antigravity
+cli-agent-config:
+  model: gemini-4-argon-high
+  effort: high
+  skip-confirmations: true
+  timeout: 600
+
+template-variables:
+  output-dir: "{{directory}}/agent-yaml-test-42"
+
+task:
+  - write:
+      prompt: |
+        Create {{output-dir}}/summary.txt with a one-line description of this workflow.
+      validate:
+        - file-exists: "{{output-dir}}/summary.txt"
