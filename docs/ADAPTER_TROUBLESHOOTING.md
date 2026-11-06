@@ -230,6 +230,12 @@ export GEMINI_API_KEY=...
 available, auto-denies `write_file` in headless mode. That is why `skip-confirmations` maps to
 `--dangerously-skip-permissions`, which does let the agent write.
 
+Model slugs come from `agy models` and differ by account and auth mode: they often encode the effort
+level (`gemini-3.8-flash-high`, `gemini-3.8-flash-medium`, `gemini-3.8-flash-low`) and some accounts
+also get `claude-sonnet-4-6` or `gpt-oss-120b-medium`. `--effort` is only accepted for models that
+expose it separately; pairing it with a model that does not raises
+`error: invalid model selection ... --effort is not supported for model ...`.
+
 Live matrix (real inference through either auth path):
 
 ```bash

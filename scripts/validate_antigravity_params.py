@@ -6,7 +6,8 @@ and checks the run succeeded and, where the option changes behaviour, that the
 artefact exists.
 
 Authentication (either works):
-  * a signed-in Google account (`agy` opens the browser once), or
+  * a signed-in Google account (`agy` opens the browser once), which needs no
+    environment variable and is the default, or
   * a Gemini API key: `{"modelProvider": "gemini"}` in
     ~/.gemini/antigravity-cli/settings.json plus `GEMINI_API_KEY` exported
     (the script falls back to `gopass show -o env/GEMINI_API_KEY`)
@@ -35,7 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agent_yaml.adapters.antigravity import AntigravityAdapter  # noqa: E402
 
-DEFAULT_MODEL = os.environ.get("ANTIGRAVITY_VALIDATION_MODEL", "gemini-3.8-flash")
+DEFAULT_MODEL = os.environ.get("ANTIGRAVITY_VALIDATION_MODEL", "gemini-3.8-flash-high")
 PROMPT_OK = "Reply with exactly: OK"
 PROMPT_WRITE = "Create a file named marker.txt containing exactly: ok"
 
@@ -63,7 +64,7 @@ def cases(model: str) -> list[Case]:
         ),
         Case(
             "effort",
-            {"model": "gemini-4-argon", "effort": "high"},
+            {"model": model, "effort": "high"},
             note="--effort high is accepted",
             tags=["flags"],
         ),
@@ -240,23 +241,22 @@ def main() -> int:
 
     env = os.environ.copy()
     if not env.get("GEMINI_API_KEY"):
+        # Optional: only used when settings.json sets modelProvider=gemini.
+        # With a signed-in account the key is not needed and is left unset.
         try:
-            env["GEMINI_API_KEY"] = subprocess.run(
+            key = subprocess.run(
                 ["gopass", "show", "-o", "env/GEMINI_API_KEY"],
                 capture_output=True,
                 text=True,
                 timeout=30,
                 check=True,
             ).stdout.strip()
+            if key:
+                env["GEMINI_API_KEY"] = key
         except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
             pass
         if not env.get("GEMINI_API_KEY"):
-            print(
-                "GEMINI_API_KEY is not set and gopass could not read env/GEMINI_API_KEY. "
-                "Sign in to agy, or configure modelProvider=gemini plus the key.",
-                file=sys.stderr,
-            )
-            return 2
+            print("GEMINI_API_KEY not found; using agy account auth.", file=sys.stderr)
 
     selected = cases(args.model)
     if args.only:
