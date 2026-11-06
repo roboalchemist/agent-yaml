@@ -16,6 +16,7 @@ authoritative field-by-field specification remains [`spec/`](../spec).
 | Run parallel loop workers with worktrees or directory pools | [PARALLEL_LOOPS.md](PARALLEL_LOOPS.md) |
 | Use or extend `agent-yaml serve` | [INTERFACE_RUNNER.md](INTERFACE_RUNNER.md) |
 | Debug a CLI that rejects flags or ignores config | [ADAPTER_TROUBLESHOOTING.md](ADAPTER_TROUBLESHOOTING.md) |
+| Check which `cli-agent-config` key works on which harness | [CONFIG_SURFACES.md](CONFIG_SURFACES.md) |
 
 ## All Pages
 
@@ -29,6 +30,7 @@ authoritative field-by-field specification remains [`spec/`](../spec).
 | [VALIDATORS.md](VALIDATORS.md) | Six validator kinds, path resolution, `command` details, retry strategies, execution order, events | `agent_yaml/task_validators.py`, `agent_yaml/executor.py` |
 | [INTERFACE_RUNNER.md](INTERFACE_RUNNER.md) | `serve` flags, HTTP API, SSE contract, event vocabulary, node-id invariant, SQLite schema, scheduler | `agent_yaml/web/*`, `agent_yaml/events.py`, `agent_yaml/graph.py` |
 | [ADAPTER_TROUBLESHOOTING.md](ADAPTER_TROUBLESHOOTING.md) | Symptom → cause → fix, per-adapter flag mapping, known-breaking flags, adding an adapter | `agent_yaml/adapters/*` |
+| [CONFIG_SURFACES.md](CONFIG_SURFACES.md) | Every `cli-agent-config` key × harness: mapped flag, ignored, warned, or rejected | `agent_yaml/adapters/*`, `agent_yaml/validator.py` |
 | [docstring-workflow-validators.md](docstring-workflow-validators.md) | Worked example: the validator stack in `tasks/docstring-pr-review.yaml` | that workflow |
 
 ## Related Documentation

@@ -221,10 +221,10 @@ and the HTTP API are in [docs/INTERFACE_RUNNER.md](docs/INTERFACE_RUNNER.md).
 | `vtcode` | `--dangerously-skip-permissions` | `--model` |
 | `antigravity` | `--dangerously-skip-permissions` | `--model` |
 
-Common options (`model`, `timeout`, `skip-confirmations`, `additional-dirs`, `mcp-config-file`,
-`debug`, `raw-args`, `output-format`) map to each CLI. See
-[docs/ADAPTER_TROUBLESHOOTING.md](docs/ADAPTER_TROUBLESHOOTING.md) for the full per-adapter table
-and [spec/ADAPTER_SPEC.md](spec/ADAPTER_SPEC.md) for the contract.
+`model`, `timeout`, `skip-confirmations`, and `raw-args` work on every harness; `output-format`
+works everywhere except codex (warns and ignores it). Everything else is per-adapter. [docs/CONFIG_SURFACES.md](docs/CONFIG_SURFACES.md) is the full
+key × harness matrix (mapped, ignored, warned, or rejected), and
+[docs/ADAPTER_TROUBLESHOOTING.md](docs/ADAPTER_TROUBLESHOOTING.md) covers the symptom → fix side.
 
 ## Docs
 

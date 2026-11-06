@@ -3,7 +3,8 @@
 agent-yaml never speaks to a model directly — every task is one subprocess invocation of a CLI
 (`opencode`, `claude`, `codex`, `pi`, `vtcode`, `agy`). Each adapter translates the same
 `cli-agent-config` keys into that CLI's flags, and when a CLI changes its flags the adapter breaks in
-ways that look like workflow bugs. This page is the symptom → cause → fix guide.
+ways that look like workflow bugs. This page is the symptom → cause → fix guide; for the full
+key × harness support matrix see [CONFIG_SURFACES.md](CONFIG_SURFACES.md).
 
 ## First Move: Look at the argv
 
