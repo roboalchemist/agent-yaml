@@ -135,6 +135,27 @@ def _load_vtcode_matrix():
     return module
 
 
+def _load_antigravity_matrix():
+    path = REPO_ROOT / "scripts" / "validate_antigravity_params.py"
+    spec = importlib.util.spec_from_file_location("validate_antigravity_params", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_antigravity_live_matrix_covers_every_validated_option():
+    """Every antigravity option is exercised live or documented as not exercisable."""
+    matrix = _load_antigravity_matrix()
+    covered = set()
+    for case in matrix.cases("gemini-3.8-flash"):
+        covered.update(case.config)
+
+    not_exercised = {"agent", "mcp-servers", "mcp-config-file"}
+    assert covered | not_exercised == set(SchemaValidator.ANTIGRAVITY_OPTION_SPEC)
+    assert not (covered & not_exercised)
+
+
 def test_vtcode_live_matrix_covers_every_validated_option():
     """Every vtcode option is either exercised live or explicitly warned-and-dropped."""
     matrix = _load_vtcode_matrix()
@@ -155,7 +176,7 @@ def test_vtcode_live_matrix_covers_every_validated_option():
         ("vtcode", {"max-tool-calls": True}, "vtcode option 'max-tool-calls' must be a positive integer"),
         ("vtcode", {"quiet": "yes"}, "vtcode option 'quiet' must be a boolean"),
         ("vtcode", {"nope": 1}, "Unknown vtcode option 'nope'"),
-        ("antigravity", {"effort": "max"}, "antigravity option 'effort' must be one of"),
+        ("antigravity", {"effort": "ultra"}, "antigravity option 'effort' must be one of"),
         ("antigravity", {"output-format": "xml"}, "antigravity option 'output-format' must be one of"),
         ("antigravity", {"sandbox": "yes"}, "antigravity option 'sandbox' must be a boolean"),
         ("antigravity", {"nope": 1}, "Unknown antigravity option 'nope'"),

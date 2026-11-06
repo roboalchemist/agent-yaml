@@ -206,12 +206,40 @@ checks each option, including a tool-driven file write, NDJSON output, and sessi
 | Config | Emission |
 |--------|----------|
 | *(always)* | `agy -p PROMPT` (headless print mode) |
-| `skip-confirmations: true` | `--mode auto` |
+| `skip-confirmations: true` | `--dangerously-skip-permissions` |
 | `model` / `effort` / `agent` | `--model` / `--effort low|medium|high` / `--agent` |
 | `output-format` | `--output-format text|json|stream-json` |
 | `session-id` / `continue` | `--conversation ID` / `--continue` |
 | `sandbox: true` | `--sandbox` |
-| `additional-dirs`, `mcp-servers`, `mcp-config-file` | **ignored with a warning** (see `~/.gemini/antigravity-cli/settings.json`) |
+| `additional-dirs` | `--add-dir DIR` (repeated) |
+| `timeout` | `--print-timeout Ns` (the executor still enforces its own limit) |
+| `mcp-servers`, `mcp-config-file` | **ignored with a warning** (use `agy mcp` / `~/.gemini/antigravity-cli/settings.json`) |
+
+`agy` authenticates either through a signed-in Google account or through a Gemini API key:
+
+```json
+// ~/.gemini/antigravity-cli/settings.json
+{"modelProvider": "gemini"}
+```
+
+```bash
+export GEMINI_API_KEY=...
+```
+
+`--mode auto` is rejected on API-key accounts ("not available for this account") and, even when
+available, auto-denies `write_file` in headless mode. That is why `skip-confirmations` maps to
+`--dangerously-skip-permissions`, which does let the agent write.
+
+Live matrix (real inference through either auth path):
+
+```bash
+python scripts/validate_antigravity_params.py
+```
+
+It defaults to `gemini-3.8-flash`, reads `GEMINI_API_KEY` from the environment or gopass, and
+exercises every option including a tool-driven file write, both JSON output modes, and conversation
+resume. The `agent` option is not exercised: it needs a named agent from `agy agents`, and a fresh
+install has none.
 
 ### Codex
 

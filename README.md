@@ -219,7 +219,7 @@ and the HTTP API are in [docs/INTERFACE_RUNNER.md](docs/INTERFACE_RUNNER.md).
 | `codex` | `--full-auto` | `-m` |
 | `pi` | `--approve` | `--model provider/id` |
 | `vtcode` | `--dangerously-skip-permissions` | `--model` |
-| `antigravity` | `--mode auto` | `--model` |
+| `antigravity` | `--dangerously-skip-permissions` | `--model` |
 
 Common options (`model`, `timeout`, `skip-confirmations`, `additional-dirs`, `mcp-config-file`,
 `debug`, `raw-args`, `output-format`) map to each CLI. See

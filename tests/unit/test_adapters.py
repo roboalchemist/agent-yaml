@@ -212,8 +212,13 @@ class TestCommandShape:
         assert without_raw[-len(prompt_tail) :] == prompt_tail
         assert with_raw == without_raw[: -len(prompt_tail)] + raw_args + prompt_tail
 
-    @every_adapter
+    @pytest.mark.parametrize(
+        "adapter_cls",
+        [cls for cls in ADAPTERS.values() if cls is not AntigravityAdapter],
+        ids=[name for name, cls in ADAPTERS.items() if cls is not AntigravityAdapter],
+    )
     def test_timeout_is_never_passed_to_the_cli(self, adapter_cls):
+        # antigravity is the exception: it maps timeout to --print-timeout.
         cmd = build(adapter_cls, {"timeout": 3600})
 
         assert cmd == build(adapter_cls, {})
@@ -851,8 +856,11 @@ class TestVTCodeAdapter:
 class TestAntigravityAdapter:
     """antigravity-specific mapping: mode, effort, agent, sandbox."""
 
-    def test_skip_confirmations_sets_auto_mode(self):
-        assert has_tokens(build(AntigravityAdapter, {"skip-confirmations": True}), "--mode", "auto")
+    def test_skip_confirmations_auto_approves_tools(self):
+        cmd = build(AntigravityAdapter, {"skip-confirmations": True})
+
+        assert "--dangerously-skip-permissions" in cmd
+        assert "--mode" not in cmd
 
     def test_effort_and_agent(self):
         cmd = build(AntigravityAdapter, {"effort": "high", "agent": "reviewer"})
@@ -863,14 +871,25 @@ class TestAntigravityAdapter:
     def test_sandbox(self):
         assert "--sandbox" in build(AntigravityAdapter, {"sandbox": True})
 
-    @pytest.mark.parametrize("option", ["additional-dirs", "mcp-servers", "mcp-config-file"])
+    @pytest.mark.parametrize("option", ["mcp-servers", "mcp-config-file"])
     def test_unsupported_options_warn_and_are_dropped(self, option):
         cmd, warnings = build_with_warnings(AntigravityAdapter, {option: ["x"]})
 
         assert cmd == build(AntigravityAdapter, {})
         assert any(option in message for message in warnings)
 
-    def test_prompt_is_the_value_of_dash_p(self):
-        cmd = build(AntigravityAdapter, {}, "-starts-with-a-dash")
+    def test_additional_dirs_use_repeated_add_dir(self):
+        cmd = build(AntigravityAdapter, {"additional-dirs": ["/tmp", "/var/tmp"]})
 
-        assert cmd[-2:] == ["-p", "-starts-with-a-dash"]
+        assert has_tokens(cmd, "--add-dir", "/tmp", "--add-dir", "/var/tmp")
+
+    def test_timeout_becomes_print_timeout(self):
+        cmd = build(AntigravityAdapter, {"timeout": 600})
+
+        assert has_tokens(cmd, "--print-timeout", "600s")
+
+    def test_prompt_after_dash_p_guards_a_leading_dash(self):
+        cmd, warnings = build_with_warnings(AntigravityAdapter, {}, "-starts-with-a-dash")
+
+        assert cmd[-2:] == ["-p", " -starts-with-a-dash"]
+        assert any("starts with '-'" in message for message in warnings)

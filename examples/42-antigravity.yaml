@@ -1,11 +1,13 @@
 # Example 42: Antigravity CLI agent
 # Tests: cli-agent: antigravity (agy) headless print mode
+# Auth: either a signed-in Google account, or modelProvider "gemini" in
+#   ~/.gemini/antigravity-cli/settings.json plus GEMINI_API_KEY exported.
 
 directory: /tmp
 
 cli-agent: antigravity
 cli-agent-config:
-  model: gemini-4-argon-high
+  model: gemini-4-argon
   effort: high
   skip-confirmations: true
   timeout: 600

@@ -92,7 +92,7 @@ class SchemaValidator:
         "sandbox": "boolean",
         "timeout": "positive number",
         "raw-args": "list of strings",
-        "additional-dirs": "list (ignored by agy)",
+        "additional-dirs": "list of directories",
         "mcp-servers": "list (ignored by agy)",
         "mcp-config-file": "string (ignored by agy)",
     }
@@ -129,7 +129,7 @@ class SchemaValidator:
         },
         "antigravity": {
             "output-format": ["text", "json", "stream-json"],
-            "effort": ["low", "medium", "high"],
+            "effort": ["low", "medium", "high", "xhigh", "max"],
         },
     }
 
