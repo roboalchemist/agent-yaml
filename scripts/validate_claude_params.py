@@ -13,13 +13,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from harness_matrix import PROMPT_WRITE, Case, main, make_fixtures, surface_cases  # noqa: E402
 from agent_yaml.adapters.claude import ClaudeAdapter  # noqa: E402
 
-DEFAULT_MODEL = os.environ.get("CLAUDE_VALIDATION_MODEL", "")
+DEFAULT_MODEL = os.environ.get("CLAUDE_VALIDATION_MODEL", "haiku-5.5")
 
 
 def cases(model):
     adapter = ClaudeAdapter()
     base = {"model": model}
     extra = [
+        Case(
+            "json-schema",
+            {**base, "json-schema": '{"type":"object"}'},
+            expect_stdout=None,
+            expect_json=True,
+            note="--json-schema constrains the printed output",
+            tags=["output"],
+        ),
         Case(
             "session-id",
             {**base, "session-id": "__UUID__"},

@@ -40,7 +40,7 @@ it (task values win) before the adapter builds the command.
 | `quiet` | ignored | ignored | ignored | rejected | `--quiet` | rejected |
 | `effort` | ignored | `--effort` | `-c` model_reasoning_effort | rejected | rejected | `--effort` |
 | `sandbox` | ignored | ignored | `--sandbox` (mode string) | rejected | rejected | `--sandbox` (boolean) |
-| `json-schema` | ignored | `--json-schema` | `--output-schema` | rejected | rejected | `--json-schema` |
+| `json-schema` | ignored | `--json-schema` (inline JSON) | `--output-schema` (file) | rejected | rejected | `--json-schema` (JSON or file) |
 | `last-message-file` | ignored | ignored | `-o` | rejected | `--last-message-file` | rejected |
 | `system-prompt` | ignored | `--system-prompt` | ignored | `--system-prompt` | rejected | rejected |
 | `append-system-prompt` | ignored | `--append-system-prompt` | ignored | `--append-system-prompt` | rejected | rejected |
@@ -134,9 +134,13 @@ or corrupt a one-shot subprocess; anything secret would land in argv or process 
 The mapping cells are verified offline against the adapters by the test below. Every harness has a
 live matrix built on the shared runner (`scripts/harness_matrix.py`): `validate_pi_params.py`,
 `validate_vtcode_params.py`, `validate_antigravity_params.py`, `validate_opencode_params.py`,
-`validate_claude_params.py`, `validate_codex_params.py`. The pi, vtcode, antigravity, and opencode
-matrices have been run live here; the claude and codex matrices need an authenticated account
-(Claude OAuth session, Codex credits) and are coverage-checked but not run in this environment.
+`validate_claude_params.py`, `validate_codex_params.py`. The matrices default to cheap models:
+Claude uses `haiku-5.5` (translated to `claude-haiku-5-5`) and Codex uses `gpt-6-luna`, and neither
+runs the `effort` surface, so a full pass does not pay for high reasoning.
+
+Live run status: pi 24/24, vtcode 19/19, antigravity 13/13, opencode 10/10, Claude 18/18 with
+`haiku-5.5`. Codex is coverage-checked and ready, but its account currently stalls or reports quota
+errors, so the matrix has not completed here.
 
 ## How This Table Is Checked
 

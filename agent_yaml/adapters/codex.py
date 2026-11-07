@@ -127,6 +127,7 @@ class CodexAdapter(BaseAdapter):
         "config-overrides": "arbitrary config injection; parse-verified only",
         "raw-args": "verbatim passthrough; covered by the adapter unit tests",
         "session-id": "resume needs a real session id from a prior run; continue covers the resume path",
+        "effort": "reasoning effort is deliberately not exercised in the cheap-model matrix",
     }
 
     def build_command(self, task_config, prompt):

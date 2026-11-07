@@ -14,8 +14,8 @@ Maps generic configurations to Claude-specific CLI arguments:
 - agent / title / effort → --agent / --name / --effort
 - mcp-config-file → --mcp-config
 - permissions[0] → --permission-mode
-- json-schema / system-prompt / append-system-prompt / settings / max-budget /
-  fallback-model / disable-slash-commands → matching flags
+- json-schema (inline JSON) / system-prompt / append-system-prompt / settings /
+  max-budget / fallback-model / disable-slash-commands → matching flags
 - raw-args → appended before the prompt
 - prompt: --print PROMPT
 
@@ -88,6 +88,7 @@ class ClaudeAdapter(BaseAdapter):
     prompt_flag = "--print"
 
     MODEL_MAPPING = {
+        "haiku-5.5": "claude-haiku-5-5",
         "sonnet-4.5": "sonnet",
         "opus-4": "opus",
     }
@@ -131,6 +132,7 @@ class ClaudeAdapter(BaseAdapter):
         "no-tools": "covered by the tools allowlist cases; disabling all tools has no turn to assert",
         "raw-args": "verbatim passthrough; covered by the adapter unit tests",
         "agent": "needs a user-defined Claude agent",
+        "effort": "reasoning effort is deliberately not exercised in the cheap-model matrix",
     }
 
     def build_command(self, task_config, prompt):

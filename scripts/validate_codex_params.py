@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from harness_matrix import PROMPT_WRITE, Case, main, make_fixtures, surface_cases  # noqa: E402
 from agent_yaml.adapters.codex import CodexAdapter  # noqa: E402
 
-DEFAULT_MODEL = os.environ.get("CODEX_VALIDATION_MODEL", "")
+DEFAULT_MODEL = os.environ.get("CODEX_VALIDATION_MODEL", "gpt-6-luna")
 
 
 def cases(model):

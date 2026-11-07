@@ -141,7 +141,7 @@ from the matrix.
 |--------|----------|
 | `skip-confirmations: true` | `--dangerously-skip-permissions` |
 | `additional-dirs` | `--add-dir=DIR` (repeated) |
-| `model` | `--model`; legacy `sonnet-4.5` / `opus-4` map to the `sonnet` / `opus` aliases |
+| `model` | `--model`; `haiku-5.5` maps to `claude-haiku-5-5`, legacy `sonnet-4.5` / `opus-4` to `sonnet` / `opus` |
 | `mcp-config-file` | `--mcp-config PATH` |
 | `permissions: [x]` | `--permission-mode x` (first entry wins) |
 | `session-id` / `continue` | `--session-id` / `--continue` |

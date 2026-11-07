@@ -99,7 +99,7 @@ AGENT_SAMPLES = {
     "files": {"opencode": ["{workdir}/file.txt"]},
     "images": {"codex": ["{workdir}/img.png"]},
     "json-schema": {
-        "claude": "{workdir}/schema.json",
+        "claude": '{"type":"object"}',
         "codex": "{workdir}/schema.json",
         "antigravity": "{workdir}/schema.json",
     },
